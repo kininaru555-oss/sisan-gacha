@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>特定商取引法に基づく表記 — 記事自販機ガチャ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:         #0a0a0f;
+  --surface:    #12121a;
+  --border:     rgba(255,220,0,0.18);
+  --yellow:     #ffd600;
+  --amber:      #ff9100;
+  --text:       #e8e8e0;
+  --muted:      #888880;
+  --font-ja:    'Zen Maru Gothic', sans-serif;
+  --font-mono:  'Share Tech Mono', monospace;
+  --font-dot:   'DotGothic16', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ja);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+  line-height: 1.85;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,214,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,214,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 80px;
+  position: relative;
+  z-index: 1;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 32px;
+}
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+.breadcrumb a:hover { color: var(--yellow); }
+.breadcrumb-sep { opacity: 0.4; }
+.breadcrumb-current { color: var(--yellow); }
+
+.page-header {
+  text-align: center;
+  margin-bottom: 40px;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.15s ease forwards;
+}
+.page-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+  border: 1px solid rgba(255,145,0,0.3);
+  padding: 4px 12px;
+  border-radius: 2px;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+.page-title {
+  font-family: var(--font-dot);
+  font-size: clamp(2rem, 7vw, 2.9rem);
+  color: var(--yellow);
+  text-shadow: 0 0 30px rgba(255,214,0,0.3);
+}
+
+.tokusho-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 28px;
+}
+
+.tokusho-card h2 {
+  font-family: var(--font-dot);
+  font-size: 1.25rem;
+  color: var(--yellow);
+  margin: 38px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,214,0,0.15);
+}
+
+.tokusho-card p {
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.tokusho-card .highlight {
+  color: var(--amber);
+  font-weight: 500;
+}
+
+.footer {
+  margin-top: 60px;
+  text-align: center;
+}
+.footer-links {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.footer-links a {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid rgba(255,214,0,0.1);
+  border-radius: 3px;
+}
+.footer-links a:hover {
+  color: var(--yellow);
+  border-color: var(--border);
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+
+<body>
+<div class="wrapper">
+
+  <nav class="breadcrumb">
+    <a href="/">TOP</a>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">特定商取引法に基づく表記</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="page-badge">SPECIFIED COMMERCIAL TRANSACTIONS ACT</div>
+    <h1 class="page-title">特定商取引法に基づく表記</h1>
+  </div>
+
+  <div class="tokusho-card">
+
+    <h2>販売事業者</h2>
+    <p>記事自販機ガチャ 運営</p>
+
+    <h2>運営責任者</h2>
+    <p>※必要に応じて記載してください</p>
+
+    <h2>所在地</h2>
+    <p>※請求があった場合、遅滞なく開示いたします。</p>
+
+    <h2>連絡先</h2>
+    <p>メールアドレス：support@example.com</p>
+
+    <h2>販売価格</h2>
+    <p>各購入画面に表示された金額によります。</p>
+    <p class="highlight">・300ポイント　300円<br>
+       ・1000ポイント　900円（10%お得）</p>
+
+    <h2>商品代金以外の必要料金</h2>
+    <p>インターネット接続に必要な通信料等はお客様のご負担となります。</p>
+
+    <h2>支払方法</h2>
+    <p>クレジットカード決済（Stripe）</p>
+
+    <h2>支払時期</h2>
+    <p>購入手続き完了時にお支払いが確定します。</p>
+
+    <h2>商品の提供時期</h2>
+    <p>決済完了後、即時にポイントが付与されます。</p>
+
+    <h2>返品・キャンセルについて</h2>
+    <p>デジタルコンテンツ（ポイント）の性質上、購入後の返金・キャンセルは一切お受けできません。</p>
+
+    <h2>出金について</h2>
+    <p>報酬残高が1,000円以上に達した場合、出金申請が可能です。</p>
+    <p>出金申請には出金コード（10分有効）が必要です。</p>
+    <p>申請後、原則として1週間以内にPayPayにて送金いたします。</p>
+
+    <h2>禁止事項</h2>
+    <p>以下の行為を禁止します。</p>
+    <ul>
+      <li>不正な方法による残高の取得・利用</li>
+      <li>他者の著作権を侵害するコンテンツの投稿</li>
+      <li>同一・類似コンテンツの大量投稿</li>
+      <li>個人情報（氏名・連絡先等）の投稿</li>
+      <li>法令または公序良俗に反する行為</li>
+    </ul>
+
+    <h2>免責事項</h2>
+    <p>当サービスは、投稿されたコンテンツの正確性・合法性・有用性を保証するものではありません。</p>
+    <p>本サービスの利用により生じたあらゆる損害について、当サービスは一切の責任を負いません。</p>
+
+    <h2>表記の変更</h2>
+    <p>本表記は、必要に応じて予告なく変更される場合があります。</p>
+
+    <p style="margin-top:50px; text-align:center; color:var(--muted); font-size:13px;">
+      最終更新日：2025年3月25日
+    </p>
+
+  </div>
+
+  <div class="footer">
+    <div class="footer-links">
+      <a href="/">トップページへ</a>
+      <a href="/terms.html">利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

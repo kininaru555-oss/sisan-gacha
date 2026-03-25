@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>記事を登録する — 記事自販機ガチャ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:         #0a0a0f;
+  --surface:    #12121a;
+  --surface2:   #0e0e16;
+  --border:     rgba(255,220,0,0.18);
+  --yellow:     #ffd600;
+  --yellow-dim: rgba(255,214,0,0.08);
+  --amber:      #ff9100;
+  --text:       #e8e8e0;
+  --muted:      #888880;
+  --danger:     #ff4d4d;
+  --font-ja:    'Zen Maru Gothic', sans-serif;
+  --font-mono:  'Share Tech Mono', monospace;
+  --font-dot:   'DotGothic16', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ja);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,214,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,214,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 24px 16px 72px;
+  position: relative;
+  z-index: 1;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.5s 0.05s ease forwards;
+}
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+.breadcrumb a:hover { color: var(--yellow); }
+.breadcrumb-sep { opacity: 0.4; }
+.breadcrumb-current { color: var(--yellow); }
+
+.page-header {
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.15s ease forwards;
+}
+.page-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+  border: 1px solid rgba(255,145,0,0.3);
+  padding: 4px 12px;
+  border-radius: 2px;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+.page-title {
+  font-family: var(--font-dot);
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  color: var(--yellow);
+  text-shadow: 0 0 24px rgba(255,214,0,0.25);
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+.page-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.reward-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, rgba(255,214,0,0.1) 0%, rgba(255,145,0,0.06) 100%);
+  border: 1px solid rgba(255,214,0,0.28);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.25s ease forwards;
+  position: relative;
+  overflow: hidden;
+}
+.reward-banner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--yellow), transparent);
+}
+.reward-icon { font-size: 28px; flex-shrink: 0; }
+.reward-title {
+  font-family: var(--font-dot);
+  font-size: 1.1rem;
+  color: var(--yellow);
+  text-shadow: 0 0 10px rgba(255,214,0,0.3);
+  margin-bottom: 2px;
+}
+.reward-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 24px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.35s ease forwards;
+}
+.form-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,214,0,0.4), transparent);
+}
+.card-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--yellow);
+  text-transform: uppercase;
+  margin-bottom: 22px;
+}
+
+.form-row {
+  margin-bottom: 20px;
+}
+.form-row:last-child { margin-bottom: 0; }
+
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.label-required {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: rgba(255,77,77,0.15);
+  border: 1px solid rgba(255,77,77,0.3);
+  border-radius: 2px;
+  color: var(--danger);
+  letter-spacing: 0.05em;
+}
+.label-optional {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: rgba(136,136,128,0.1);
+  border: 1px solid rgba(136,136,128,0.2);
+  border-radius: 2px;
+  color: var(--muted);
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: var(--font-ja);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid rgba(255,220,0,0.12);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+  border-color: rgba(255,214,0,0.4);
+  box-shadow: 0 0 0 3px rgba(255,214,0,0.06);
+}
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: rgba(136,136,128,0.5);
+  font-size: 13px;
+}
+
+.form-textarea {
+  min-height: 260px;
+  resize: vertical;
+  line-height: 1.7;
+}
+
+.uid-display {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.uid-display .form-input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  cursor: default;
+}
+.uid-note {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(136,136,128,0.5);
+  margin-top: 5px;
+  letter-spacing: 0.04em;
+}
+
+.select-wrap {
+  position: relative;
+}
+.select-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--yellow);
+  pointer-events: none;
+  font-size: 12px;
+}
+
+.char-counter {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  text-align: right;
+  margin-top: 5px;
+  transition: color 0.2s;
+}
+.char-counter.warn { color: var(--amber); }
+.char-counter.over { color: var(--danger); font-weight: bold; }
+
+.divider {
+  border: none;
+  border-top: 1px solid rgba(255,220,0,0.08);
+  margin: 22px 0;
+}
+
+.btn-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 18px;
+  font-family: var(--font-dot);
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  color: #0a0a0f;
+  background: var(--yellow);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.15s;
+  box-shadow: 0 4px 24px rgba(255,214,0,0.25);
+}
+.btn-submit::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.4s;
+}
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(255,214,0,0.4);
+}
+.btn-submit:hover:not(:disabled)::before { left: 100%; }
+.btn-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-note {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 10px;
+}
+
+.notice-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.45s ease forwards;
+}
+.notice-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.notice-title::before {
+  content: '⚠';
+  color: var(--amber);
+}
+.notice-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.notice-list li {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.65;
+  padding-left: 14px;
+  position: relative;
+}
+.notice-list li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: rgba(136,136,128,0.4);
+  font-size: 10px;
+  top: 2px;
+}
+
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+  z-index: 200;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.error { border-color: rgba(255,77,77,0.4); color: var(--danger); }
+#toast.success { border-color: rgba(255,214,0,0.4); color: var(--yellow); }
+
+#loadingOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+#loadingOverlay.show { display: flex; }
+
+.loading-box { text-align: center; }
+.loading-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255,214,0,0.15);
+  border-top-color: var(--yellow);
+  border-radius: 50%;
+  margin: 0 auto 14px;
+  animation: spin 0.8s linear infinite;
+}
+.loading-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+
+.footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255,214,0,0.08);
+  text-align: center;
+}
+.footer-links {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.footer-links a {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid rgba(255,214,0,0.1);
+  border-radius: 3px;
+}
+.footer-links a:hover { color: var(--yellow); border-color: var(--border); }
+.footer-copy {
+  font-size: 10px;
+  color: rgba(136,136,128,0.4);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>
+</head>
+
+<body>
+<div class="wrapper">
+
+  <nav class="breadcrumb">
+    <a href="/">TOP</a>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">記事を登録する</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="page-badge">CONTENT UPLOAD</div>
+    <h1 class="page-title">記事を登録する</h1>
+    <p class="page-desc">
+      副業ノウハウ・note記事・マニュアル・収益化情報など、<br>
+      ジャンルを問わず登録できます。
+    </p>
+  </div>
+
+  <div class="reward-banner">
+    <div class="reward-icon">🎰</div>
+    <div class="reward-body">
+      <div class="reward-title">登録完了でガチャ1回プレゼント</div>
+      <div class="reward-desc">
+        記事を登録するだけで、無料ガチャチケットを1枚進呈。<br>
+        まず自分でガチャを体験してみてください。
+      </div>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <div class="card-label">▶ ARTICLE DATA</div>
+
+    <!-- User ID -->
+    <div class="form-row">
+      <label class="form-label" for="user_id">
+        USER ID
+        <span class="label-optional">AUTO</span>
+      </label>
+      <div class="uid-display">
+        <input id="user_id" class="form-input" readonly>
+      </div>
+      <div class="uid-note">※ 自動発行されます。変更不要です。</div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Title -->
+    <div class="form-row">
+      <label class="form-label" for="title">
+        タイトル
+        <span class="label-required">必須</span>
+      </label>
+      <input
+        id="title"
+        class="form-input"
+        placeholder="例：月5万円を達成した副業の全手順"
+        maxlength="80"
+        oninput="updateCounter('title', 80)"
+      >
+      <div class="char-counter" id="title-counter">0 / 80</div>
+    </div>
+
+    <!-- Category -->
+    <div class="form-row">
+      <label class="form-label" for="category">
+        カテゴリ
+        <span class="label-required">必須</span>
+      </label>
+      <div class="select-wrap">
+        <select id="category" class="form-select">
+          <option>副業</option>
+          <option>収益化</option>
+          <option>note・情報販売</option>
+          <option>SNS運用</option>
+          <option>マーケティング</option>
+          <option>AI活用</option>
+          <option>その他</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="form-row">
+      <label class="form-label" for="content">
+        本文・内容
+        <span class="label-required">必須</span>
+      </label>
+      <textarea
+        id="content"
+        class="form-textarea"
+        placeholder="記事の内容、ノウハウ、手順などを入力してください。&#10;&#10;読者が購入・閲覧したいと思えるような情報を書くと、ガチャで選ばれやすくなります。"
+        maxlength="10000"
+        oninput="updateCounter('content', 10000)"
+      ></textarea>
+      <div class="char-counter" id="content-counter">0 / 10000</div>
+    </div>
+
+    <hr class="divider">
+
+    <button class="btn-submit" id="submitBtn" onclick="submitPost()">
+      📥　記事を登録してガチャを受け取る
+    </button>
+    <div class="btn-note">登録完了後、トップページへ移動します</div>
+  </div>
+
+  <div class="notice-card">
+    <div class="notice-title">注意事項</div>
+    <ul class="notice-list">
+      <li>第三者の著作権を侵害するコンテンツの投稿は禁止です。</li>
+      <li>氏名・住所・連絡先など、個人を特定できる情報の掲載は禁止です。</li>
+      <li>虚偽・誇大な表現、詐欺的内容はご遠慮ください。</li>
+      <li>違反が確認された場合、削除・報酬の無効化を行う場合があります。</li>
+      <li>本文は10000文字以内で投稿してください（目安：2000〜8000文字程度）</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    <div class="footer-links">
+      <a href="/terms.html">利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokusho.html">特定商取引法</a>
+    </div>
+    <div class="footer-copy">© 2025 ARTICLE VENDING MACHINE</div>
+  </div>
+
+</div>
+
+<div id="loadingOverlay">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <div class="loading-label">UPLOADING…</div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function generateUserId() {
+  return "u_" + Math.random().toString(36).substring(2, 12);
+}
+
+function initUserId() {
+  let uid = localStorage.getItem("user_id");
+  if (!uid) {
+    uid = generateUserId();
+    localStorage.setItem("user_id", uid);
+  }
+  document.getElementById("user_id").value = uid;
+}
+
+function updateCounter(id, max) {
+  const len = document.getElementById(id).value.length;
+  const el = document.getElementById(id + "-counter");
+  el.textContent = `${len} / ${max}`;
+
+  if (len >= max) {
+    el.className = "char-counter over";
+  } else if (len > max * 0.9) {
+    el.className = "char-counter warn";
+  } else {
+    el.className = "char-counter";
+  }
+}
+
+function showToast(msg, type = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "show" + (type ? " " + type : "");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ""; }, 2800);
+}
+
+async function submitPost() {
+  const user_id  = document.getElementById("user_id").value;
+  const title    = document.getElementById("title").value.trim();
+  const content  = document.getElementById("content").value.trim();
+  const category = document.getElementById("category").value;
+
+  if (!title) return showToast("タイトルを入力してください", "error");
+  if (!content) return showToast("本文を入力してください", "error");
+  if (content.length > 10000) return showToast("本文は10000文字以内で入力してください", "error");
+  if (content.length < 200) return showToast("本文は最低200文字以上で入力してください", "error");
+
+  const btn = document.getElementById("submitBtn");
+  const overlay = document.getElementById("loadingOverlay");
+
+  btn.disabled = true;
+  overlay.classList.add("show");
+
+  try {
+    const res = await fetch("/prompts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id, title, content, category })
+    });
+
+    overlay.classList.remove("show");
+
+    if (res.ok) {
+      showToast("登録完了！無料ガチャを進呈しました 🎰", "success");
+      setTimeout(() => location.href = "/", 1600);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showToast(data.detail || "投稿に失敗しました", "error");
+      btn.disabled = false;
+    }
+  } catch (e) {
+    overlay.classList.remove("show");
+    showToast("通信エラーが発生しました", "error");
+    btn.disabled = false;
+  }
+}
+
+window.onload = initUserId;
+</script>
+</body>
+</html>

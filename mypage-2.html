@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>マイページ — 記事自販機ガチャ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:         #0a0a0f;
+  --surface:    #12121a;
+  --surface2:   #0e0e16;
+  --border:     rgba(255,220,0,0.18);
+  --yellow:     #ffd600;
+  --yellow-dim: rgba(255,214,0,0.08);
+  --amber:      #ff9100;
+  --green:      #39d98a;
+  --green-dim:  rgba(57,217,138,0.1);
+  --text:       #e8e8e0;
+  --muted:      #888880;
+  --danger:     #ff4d4d;
+  --font-ja:    'Zen Maru Gothic', sans-serif;
+  --font-mono:  'Share Tech Mono', monospace;
+  --font-dot:   'DotGothic16', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ja);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+body::before, body::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+}
+
+body::before {
+  background-image:
+    linear-gradient(rgba(255,214,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,214,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+body::after {
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+  );
+}
+
+.wrapper {
+  max-width: 580px;
+  margin: 0 auto;
+  padding: 24px 16px 72px;
+  position: relative; z-index: 1;
+}
+
+.breadcrumb {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.12em;
+  color: var(--muted); margin-bottom: 32px;
+  opacity: 0; animation: fadeUp 0.5s 0.05s ease forwards;
+}
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+.breadcrumb a:hover { color: var(--yellow); }
+.breadcrumb-sep { opacity: 0.4; }
+.breadcrumb-current { color: var(--yellow); }
+
+.page-header {
+  margin-bottom: 28px;
+  opacity: 0; animation: fadeUp 0.6s 0.15s ease forwards;
+}
+.page-badge {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.18em; color: var(--yellow);
+  border: 1px solid var(--border); padding: 4px 12px;
+  border-radius: 2px; margin-bottom: 14px; text-transform: uppercase;
+}
+.page-title {
+  font-family: var(--font-dot);
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  color: var(--yellow);
+  text-shadow: 0 0 24px rgba(255,214,0,0.25);
+  line-height: 1.2; margin-bottom: 8px;
+}
+.page-desc {
+  font-size: 12px; color: var(--muted); line-height: 1.8;
+  font-family: var(--font-mono); letter-spacing: 0.04em;
+}
+
+.uid-strip {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--yellow-dim);
+  border: 1px solid var(--border); border-radius: 6px;
+  margin-bottom: 24px;
+  opacity: 0; animation: fadeUp 0.5s 0.25s ease forwards;
+}
+.uid-strip-label {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.12em; color: var(--muted); white-space: nowrap;
+}
+.uid-strip-value {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--text); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.stats-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; margin-bottom: 16px;
+  opacity: 0; animation: fadeUp 0.6s 0.3s ease forwards;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px 18px; position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--yellow), transparent);
+}
+.stat-card.green::before {
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+}
+
+.stat-label {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.2em; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.stat-value {
+  font-family: var(--font-dot); font-size: 1.9rem;
+  color: var(--yellow); line-height: 1;
+  text-shadow: 0 0 16px rgba(255,214,0,0.3);
+}
+.stat-card.green .stat-value { color: var(--green); text-shadow: 0 0 16px rgba(57,217,138,0.3); }
+
+.stat-sub {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--muted); margin-top: 8px; line-height: 1.5;
+}
+.stat-sub.ok   { color: var(--green); }
+.stat-sub.warn { color: var(--muted); }
+
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 24px; margin-bottom: 14px;
+  position: relative; overflow: hidden;
+  opacity: 0;
+}
+.section-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,214,0,0.3), transparent);
+}
+
+.card-label {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.2em; color: var(--yellow);
+  text-transform: uppercase; margin-bottom: 18px;
+}
+
+.section-card:nth-child(1) { animation: fadeUp 0.6s 0.35s ease forwards; }
+.section-card:nth-child(2) { animation: fadeUp 0.6s 0.42s ease forwards; }
+.section-card:nth-child(3) { animation: fadeUp 0.6s 0.49s ease forwards; }
+.section-card:nth-child(4) { animation: fadeUp 0.6s 0.56s ease forwards; }
+.section-card:nth-child(5) { animation: fadeUp 0.6s 0.63s ease forwards; }
+
+.purchase-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 14px;
+}
+
+.btn-purchase {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 14px 10px;
+  background: var(--yellow-dim);
+  border: 1px solid var(--border); border-radius: 8px;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-purchase:hover {
+  background: rgba(255,214,0,0.14); border-color: rgba(255,214,0,0.4);
+  transform: translateY(-2px);
+}
+
+.purchase-pt {
+  font-family: var(--font-dot); font-size: 1.1rem;
+  color: var(--yellow);
+}
+.purchase-price {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--muted); letter-spacing: 0.05em;
+}
+.purchase-badge {
+  font-size: 9px; padding: 2px 6px;
+  background: rgba(255,145,0,0.15);
+  border: 1px solid rgba(255,145,0,0.3);
+  border-radius: 2px; color: var(--amber);
+  font-family: var(--font-mono); letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.purchase-note {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--muted); letter-spacing: 0.04em; line-height: 1.7;
+}
+
+.btn-primary {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; width: 100%;
+  padding: 16px; font-family: var(--font-dot);
+  font-size: 1rem; letter-spacing: 0.1em;
+  color: #0a0a0f; background: var(--yellow);
+  border: none; border-radius: 8px; cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: all 0.15s;
+  box-shadow: 0 4px 20px rgba(255,214,0,0.2);
+  margin-bottom: 14px;
+}
+.btn-primary::before {
+  content: '';
+  position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.4s;
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(255,214,0,0.35); }
+.btn-primary:hover::before { left: 100%; }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; background: #555; }
+
+.btn-secondary {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; width: 100%;
+  padding: 13px; font-family: var(--font-dot);
+  font-size: 0.95rem; letter-spacing: 0.08em;
+  color: var(--yellow);
+  background: var(--yellow-dim);
+  border: 1px solid var(--border); border-radius: 8px;
+  cursor: pointer; transition: all 0.2s;
+  margin-bottom: 10px;
+}
+.btn-secondary:hover { background: rgba(255,214,0,0.14); transform: translateY(-1px); }
+
+.card-note {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--muted); line-height: 1.8; letter-spacing: 0.04em;
+}
+
+.backup-code-box {
+  background: var(--surface2);
+  border: 1px solid rgba(255,220,0,0.12);
+  border-radius: 6px; padding: 12px 14px;
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--muted); word-break: break-all;
+  line-height: 1.6; margin-bottom: 12px; letter-spacing: 0.04em;
+}
+
+.form-input {
+  width: 100%; padding: 12px 14px;
+  font-size: 13px; font-family: var(--font-mono);
+  border-radius: 6px; background: var(--surface2);
+  color: var(--text); letter-spacing: 0.04em;
+  border: 1px solid rgba(255,220,0,0.12); outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 10px;
+}
+.form-input:focus { border-color: rgba(255,214,0,0.4); }
+.form-input::placeholder { color: rgba(136,136,128,0.4); font-size: 12px; }
+
+#toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 20px;
+  font-family: var(--font-mono); font-size: 12px;
+  letter-spacing: 0.06em; color: var(--text);
+  opacity: 0; transition: all 0.3s;
+  pointer-events: none; z-index: 200; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.error   { border-color: rgba(255,77,77,0.4); color: var(--danger); }
+#toast.success { border-color: rgba(255,214,0,0.4); color: var(--yellow); }
+#toast.info    { border-color: rgba(57,217,138,0.4); color: var(--green); }
+
+/* 新規追加：出金コードエリア */
+.withdraw-code-area {
+  margin: 16px 0;
+  padding: 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  display: none;
+}
+.withdraw-code {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  letter-spacing: 8px;
+  color: var(--yellow);
+  margin-bottom: 10px;
+}
+.withdraw-code-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+
+<body>
+<div class="wrapper">
+
+  <nav class="breadcrumb">
+    <a href="/">TOP</a>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">マイページ</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="page-badge">MY PAGE</div>
+    <h1 class="page-title">マイページ</h1>
+    <p class="page-desc">POINTS / BALANCE / WITHDRAW / BACKUP</p>
+  </div>
+
+  <div class="uid-strip">
+    <span class="uid-strip-label">USER ID</span>
+    <span class="uid-strip-value" id="uid-display">—</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">POINT BALANCE</div>
+      <div class="stat-value" id="points">—</div>
+      <div class="stat-sub" id="points-sub">読み込み中…</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">REWARD BALANCE</div>
+      <div class="stat-value" id="balance">—</div>
+      <div class="stat-sub" id="withdraw-status">読み込み中…</div>
+    </div>
+  </div>
+
+  <!-- POINT PURCHASE -->
+  <div class="section-card">
+    <div class="card-label">▶ POINT PURCHASE</div>
+    <div class="purchase-grid">
+      <button class="btn-purchase" onclick="startCheckout('300')">
+        <span class="purchase-pt">300 PT</span>
+        <span class="purchase-price">¥ 300</span>
+      </button>
+      <button class="btn-purchase" onclick="startCheckout('1000')">
+        <span class="purchase-pt">1000 PT</span>
+        <span class="purchase-price">¥ 900</span>
+        <span class="purchase-badge">10% お得</span>
+      </button>
+    </div>
+    <div class="purchase-note">
+      Stripe決済完了後、自動でポイントが付与されます。<br>
+      ガチャ1回 = 30pt消費。
+    </div>
+  </div>
+
+  <!-- WITHDRAW -->
+  <div class="section-card">
+    <div class="card-label">▶ WITHDRAW</div>
+    
+    <button class="btn-primary" id="withdrawCodeBtn" onclick="getWithdrawCode()">
+      🔑　出金コードを発行する（10分有効）
+    </button>
+
+    <div id="withdrawCodeArea" class="withdraw-code-area">
+      <div class="withdraw-code-label">出金コード（10分有効・1回限り）</div>
+      <div class="withdraw-code" id="withdrawCode">------</div>
+      <button class="btn-secondary" onclick="copyWithdrawCode()">📋 コードをコピー</button>
+    </div>
+
+    <button class="btn-primary" id="withdrawBtn" onclick="goWithdraw()" style="margin-top: 12px;">
+      💸　Googleフォームで出金申請する
+    </button>
+
+    <div class="card-note">
+      1,000円以上から申請可能です。<br>
+      コード発行後、10分以内にフォームから申請してください。
+    </div>
+  </div>
+
+  <!-- BACKUP -->
+  <div class="section-card">
+    <div class="card-label">▶ BACKUP CODE</div>
+    <div class="backup-code-box" id="backupCode">読み込み中…</div>
+    <button class="btn-secondary" onclick="copyCode()">
+      📋　コードをコピーする
+    </button>
+    <div class="card-note">
+      このコードを保存しておくと、機種変更や別端末でもデータを復元できます。<br>
+      他人には絶対に教えないでください。
+    </div>
+  </div>
+
+  <!-- RESTORE -->
+  <div class="section-card">
+    <div class="card-label">▶ RESTORE</div>
+    <input class="form-input" id="restoreInput" placeholder="バックアップコードを貼り付ける">
+    <button class="btn-primary" onclick="restoreUser()">
+      🔄　データを復元する
+    </button>
+    <div class="card-note">
+      復元後はページが再読み込みされます。<br>
+      現在のデータは上書きされますのでご注意ください。
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-links">
+      <a href="/terms.html">利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokusho.html">特定商取引法</a>
+    </div>
+    <div class="footer-copy">© 2026 ARTICLE VENDING MACHINE</div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+function showToast(msg, type = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "show" + (type ? " " + type : "");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = "", 2800);
+}
+
+/* User ID */
+function generateUserId() {
+  return "u_" + Math.random().toString(36).substring(2, 12);
+}
+
+function initUserId() {
+  let uid = localStorage.getItem("user_id");
+  if (!uid) {
+    uid = generateUserId();
+    localStorage.setItem("user_id", uid);
+  }
+  document.getElementById("uid-display").textContent = uid;
+  return uid;
+}
+
+/* Withdraw Status */
+function updateWithdrawStatus(yen) {
+  const statusEl = document.getElementById("withdraw-status");
+  const btn = document.getElementById("withdrawBtn");
+
+  if (yen >= 1000) {
+    statusEl.textContent = "出金可能";
+    statusEl.className = "stat-sub ok";
+    btn.disabled = false;
+  } else {
+    statusEl.textContent = `あと ${(1000 - yen).toLocaleString()}円で出金可能`;
+    statusEl.className = "stat-sub warn";
+    btn.disabled = true;
+  }
+}
+
+/* Load Balance */
+async function loadBalance() {
+  const user_id = initUserId();
+  try {
+    const res = await fetch(`/mypage/${user_id}`);
+    const data = await res.json();
+
+    document.getElementById("balance").textContent = `${data.yen.toLocaleString()}円`;
+    document.getElementById("points").textContent = `${data.points.toLocaleString()}pt`;
+    document.getElementById("points-sub").textContent = "利用可能";
+    updateWithdrawStatus(data.yen);
+  } catch (e) {
+    showToast("残高の取得に失敗しました", "error");
+  }
+}
+
+/* Point Purchase */
+async function startCheckout(product_code) {
+  const btns = document.querySelectorAll('.btn-purchase');
+  btns.forEach(b => b.style.pointerEvents = 'none');
+
+  try {
+    const user_id = initUserId();
+    const res = await fetch("/stripe/create-checkout-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id, product_code })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.checkout_url) {
+      location.href = data.checkout_url;
+    } else {
+      showToast(data.detail || "決済ページ作成失敗", "error");
+    }
+  } catch {
+    showToast("通信エラー", "error");
+  } finally {
+    btns.forEach(b => b.style.pointerEvents = 'auto');
+  }
+}
+
+/* Withdraw Code */
+let currentWithdrawCode = "";
+
+async function getWithdrawCode() {
+  const btn = document.getElementById("withdrawCodeBtn");
+  const area = document.getElementById("withdrawCodeArea");
+  const codeEl = document.getElementById("withdrawCode");
+
+  btn.disabled = true;
+  btn.textContent = "発行中...";
+
+  try {
+    const user_id = initUserId();
+    const res = await fetch("/withdraw/code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.code) {
+      currentWithdrawCode = data.code;
+      codeEl.textContent = data.code;
+      area.style.display = "block";
+      showToast("出金コードを発行しました（10分有効）", "success");
+    } else {
+      showToast(data.detail || "発行失敗", "error");
+    }
+  } catch {
+    showToast("通信エラー", "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🔑　出金コードを発行する（10分有効）";
+  }
+}
+
+function copyWithdrawCode() {
+  if (!currentWithdrawCode) return;
+  navigator.clipboard.writeText(currentWithdrawCode)
+    .then(() => showToast("出金コードをコピーしました ✓", "success"))
+    .catch(() => showToast("コピーに失敗しました", "error"));
+}
+
+/* Original Withdraw */
+function goWithdraw() {
+  window.open("https://docs.google.com/forms/d/あなたのフォームURL", "_blank");
+}
+
+/* Backup & Restore */
+function loadBackupCode() {
+  const uid = localStorage.getItem("user_id") || "—";
+  document.getElementById("backupCode").textContent = uid;
+}
+
+function copyCode() {
+  const uid = localStorage.getItem("user_id");
+  if (!uid) return showToast("コードが見つかりません", "error");
+  navigator.clipboard.writeText(uid)
+    .then(() => showToast("バックアップコードをコピーしました", "success"))
+    .catch(() => showToast("コピーに失敗しました", "error"));
+}
+
+function restoreUser() {
+  const code = document.getElementById("restoreInput").value.trim();
+  if (!code) return showToast("コードを入力してください", "error");
+
+  localStorage.setItem("user_id", code);
+  showToast("復元しました。再読み込みします...", "info");
+  setTimeout(() => location.reload(), 1200);
+}
+
+/* Init */
+window.onload = function () {
+  loadBalance();
+  loadBackupCode();
+};
+</script>
+</body>
+</html>
