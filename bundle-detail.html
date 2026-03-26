@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="page-title">福袋詳細</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white text-gray-900 min-h-screen pb-24">
+  <div class="max-w-2xl mx-auto">
+    <div class="bg-gray-100 aspect-square flex items-center justify-center relative">
+      <div class="text-[160px] sm:text-[220px]">🎁</div>
+      <div id="status-badge" class="absolute top-4 left-4 bg-gray-700 text-white text-sm font-bold px-5 py-1.5 rounded-2xl shadow">
+        読み込み中
+      </div>
+    </div>
+
+    <div class="px-5 pt-6 pb-8">
+      <div class="mb-4">
+        <a href="bundles.html" class="text-sm text-orange-600 hover:text-orange-700">
+          ← 福袋一覧へ戻る
+        </a>
+      </div>
+
+      <h1 id="bundle-title" class="text-2xl font-bold leading-tight">読み込み中...</h1>
+
+      <p id="bundle-description" class="text-gray-600 mt-3 text-[15.5px] leading-relaxed">
+        福袋情報を読み込んでいます
+      </p>
+
+      <div class="mt-8 bg-orange-50 border border-orange-100 rounded-3xl p-6">
+        <div class="flex items-end gap-2">
+          <span id="price" class="text-5xl font-bold text-orange-600">--</span>
+          <span class="text-2xl text-orange-600/70 font-medium">pt</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6 mt-7 text-sm">
+          <div>
+            <span class="block text-gray-500 text-xs">ジャンル</span>
+            <span id="genre" class="font-semibold text-lg">--</span>
+          </div>
+          <div>
+            <span class="block text-gray-500 text-xs">状態</span>
+            <span id="status-text" class="font-semibold text-lg">--</span>
+          </div>
+          <div>
+            <span class="block text-gray-500 text-xs">現在件数</span>
+            <span id="current-count" class="font-medium">--</span>
+          </div>
+          <div>
+            <span class="block text-gray-500 text-xs">目標件数</span>
+            <span id="target-count" class="font-medium">--</span>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <div class="w-full bg-gray-200 rounded-full h-3">
+            <div id="progress-bar" class="bg-amber-500 h-3 rounded-full" style="width:0%"></div>
+          </div>
+          <div id="progress-text" class="text-xs text-gray-500 mt-2">--</div>
+        </div>
+      </div>
+
+      <div class="mt-10">
+        <h3 class="font-semibold text-lg mb-4">福袋の説明</h3>
+        <div id="detail-text" class="text-gray-700 text-[15px] leading-relaxed space-y-4">
+          <p>読み込み中です。</p>
+        </div>
+      </div>
+
+      <div id="bundle-items-box" class="mt-10 hidden">
+        <h3 class="font-semibold text-lg mb-4">購入済み内容</h3>
+        <div id="bundle-items" class="space-y-4"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-4 px-5 z-50 shadow">
+    <div class="max-w-2xl mx-auto">
+      <button
+        id="buy-button"
+        class="w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-lg py-4 rounded-2xl"
+      >
+        読み込み中...
+      </button>
+
+      <p id="buy-note" class="text-center text-xs text-gray-500 mt-3">
+        状態に応じて購入可否が切り替わります
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE =
+      window.APP_CONFIG?.API_BASE ||
+      localStorage.getItem("API_BASE") ||
+      "";
+
+    let bundleData = null;
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function getBundleIdFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("id");
+    }
+
+    function isPurchasedMode() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("purchased") === "1";
+    }
+
+    function getStatusText(status) {
+      if (status === "active") return "販売中";
+      if (status === "closed") return "販売終了";
+      return "募集中";
+    }
+
+    function getStatusBadgeClass(status) {
+      if (status === "active") return "bg-green-600";
+      if (status === "closed") return "bg-gray-600";
+      return "bg-amber-500";
+    }
+
+    function updateBuyArea() {
+      const button = document.getElementById("buy-button");
+      const note = document.getElementById("buy-note");
+
+      if (!bundleData) {
+        button.disabled = true;
+        button.textContent = "読み込み中...";
+        return;
+      }
+
+      if (bundleData.status === "active") {
+        button.disabled = false;
+        button.className = "w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-lg py-4 rounded-2xl";
+        button.textContent = `${Number(bundleData.price_points || 0)} pt で購入する`;
+        note.textContent = "購入後すぐに内容確認可能です";
+        return;
+      }
+
+      if (bundleData.status === "closed") {
+        button.disabled = true;
+        button.className = "w-full bg-gray-300 text-gray-600 font-bold text-lg py-4 rounded-2xl cursor-not-allowed";
+        button.textContent = "販売終了";
+        note.textContent = "この福袋は販売終了しています";
+        return;
+      }
+
+      const remain = Math.max(
+        Number(bundleData.target_article_count || 0) - Number(bundleData.current_article_count || 0),
+        0
+      );
+      button.disabled = true;
+      button.className = "w-full bg-amber-100 text-amber-700 font-bold text-lg py-4 rounded-2xl cursor-default";
+      button.textContent = "募集中";
+      note.textContent = `あと ${remain} 件集まると販売開始です`;
+    }
+
+    function renderBundle() {
+      if (!bundleData) return;
+
+      const currentCount = Number(bundleData.current_article_count || 0);
+      const targetCount = Number(bundleData.target_article_count || 0);
+      const remain = Math.max(targetCount - currentCount, 0);
+      const percent = targetCount > 0 ? Math.min(Math.floor((currentCount / targetCount) * 100), 100) : 0;
+
+      document.getElementById("page-title").textContent = `${bundleData.title} - 福袋詳細`;
+      document.getElementById("bundle-title").textContent = bundleData.title || "無題の福袋";
+      document.getElementById("bundle-description").textContent = bundleData.description || "説明はまだありません";
+      document.getElementById("price").textContent = Number(bundleData.price_points || 0);
+      document.getElementById("genre").textContent = bundleData.genre || "その他";
+      document.getElementById("status-text").textContent = getStatusText(bundleData.status);
+      document.getElementById("current-count").textContent = `${currentCount} 件`;
+      document.getElementById("target-count").textContent = `${targetCount} 件`;
+
+      const statusBadge = document.getElementById("status-badge");
+      statusBadge.className = `absolute top-4 left-4 text-white text-sm font-bold px-5 py-1.5 rounded-2xl shadow ${getStatusBadgeClass(bundleData.status)}`;
+      statusBadge.textContent = getStatusText(bundleData.status);
+
+      document.getElementById("progress-bar").style.width = `${percent}%`;
+      document.getElementById("progress-text").textContent =
+        bundleData.status === "recruiting"
+          ? `進捗 ${currentCount} / ${targetCount} 件（あと ${remain} 件）`
+          : `収録記事数 ${targetCount} 件`;
+
+      document.getElementById("detail-text").innerHTML = `
+        <p>${escapeHtml(bundleData.description || "説明はまだありません。")}</p>
+        <p>ジャンル: ${escapeHtml(bundleData.genre || "その他")}</p>
+        <p>状態: ${escapeHtml(getStatusText(bundleData.status))}</p>
+      `;
+
+      updateBuyArea();
+    }
+
+    async function loadBundleDetail() {
+      const bundleId = getBundleIdFromQuery();
+      if (!bundleId) {
+        alert("bundle_id が指定されていません");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/bundles/${encodeURIComponent(bundleId)}`);
+        if (!res.ok) throw new Error("福袋詳細の取得に失敗しました");
+
+        bundleData = await res.json();
+        renderBundle();
+
+        if (isPurchasedMode()) {
+          await loadPurchasedItems();
+        }
+      } catch (err) {
+        console.error(err);
+        alert(err.message || "福袋の読み込みに失敗しました");
+      }
+    }
+
+    async function buyBundle() {
+      const token = localStorage.getItem("access_token");
+      const userId = localStorage.getItem("user_id");
+
+      if (!token || !userId) {
+        alert("購入にはログインが必要です");
+        return;
+      }
+
+      if (!bundleData) {
+        alert("福袋データの読み込み前です");
+        return;
+      }
+
+      if (bundleData.status !== "active") {
+        alert("この福袋はまだ購入できません");
+        return;
+      }
+
+      const ok = confirm(`「${bundleData.title}」を ${bundleData.price_points}pt で購入しますか？`);
+      if (!ok) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/bundles/buy`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            bundle_id: bundleData.id
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "購入に失敗しました");
+
+        alert("購入が完了しました");
+        const url = new URL(window.location.href);
+        url.searchParams.set("purchased", "1");
+        window.location.href = url.toString();
+      } catch (err) {
+        console.error(err);
+        alert(err.message || "購入に失敗しました");
+      }
+    }
+
+    async function loadPurchasedItems() {
+      const token = localStorage.getItem("access_token");
+      const userId = localStorage.getItem("user_id");
+
+      if (!token || !userId || !bundleData?.id) return;
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/bundles/${encodeURIComponent(bundleData.id)}/items/${encodeURIComponent(userId)}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          }
+        );
+
+        if (!res.ok) return;
+
+        const items = await res.json();
+        if (!Array.isArray(items) || items.length === 0) return;
+
+        const box = document.getElementById("bundle-items-box");
+        const container = document.getElementById("bundle-items");
+        box.classList.remove("hidden");
+
+        container.innerHTML = items.map(item => `
+          <div class="border border-gray-200 rounded-2xl p-4">
+            <div class="text-sm text-gray-500 mb-1">${escapeHtml(item.category || "カテゴリ未設定")}</div>
+            <div class="font-bold text-lg mb-2">${escapeHtml(item.title || "無題")}</div>
+            <div class="text-gray-700 whitespace-pre-wrap break-words">${escapeHtml(item.content || "")}</div>
+            ${item.url ? `
+              <a
+                href="${escapeHtml(item.url)}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-block mt-3 text-orange-600 hover:text-orange-700 text-sm"
+              >
+                元URLを開く
+              </a>
+            ` : ""}
+          </div>
+        `).join("");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    document.getElementById("buy-button").addEventListener("click", buyBundle);
+    window.addEventListener("load", loadBundleDetail);
+  </script>
+</body>
+</html>
