@@ -94,6 +94,119 @@
       return d.toLocaleDateString("ja-JP");
     }
 
+    function getCsrfToken() {
+      return localStorage.getItem("csrf_token") || "";
+    }
+
+    function clearClientSession() {
+      localStorage.removeItem("user_id");
+      localStorage.removeItem("csrf_token");
+    }
+
+    async function fetchCsrf() {
+      const res = await fetch(`${API_BASE}/auth/csrf`, {
+        method: "GET",
+        credentials: "include"
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.detail || "CSRF取得失敗");
+      }
+
+      const csrfToken = data.csrf_token || "";
+      if (csrfToken) {
+        localStorage.setItem("csrf_token", csrfToken);
+      }
+
+      return csrfToken;
+    }
+
+    async function authFetch(path, options = {}) {
+      const method = (options.method || "GET").toUpperCase();
+      let csrfToken = getCsrfToken();
+
+      if (!csrfToken) {
+        try {
+          csrfToken = await fetchCsrf();
+        } catch (_) {
+          // GET系はそのまま続行
+        }
+      }
+
+      const headers = { ...(options.headers || {}) };
+
+      if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+      }
+
+      if (!["GET", "HEAD"].includes(method) && csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+      }
+
+      let res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        method,
+        headers,
+        credentials: "include"
+      });
+
+      if (res.status === 401 && path !== "/auth/refresh") {
+        const refreshHeaders = {};
+        const refreshCsrf = getCsrfToken() || csrfToken;
+
+        if (refreshCsrf) {
+          refreshHeaders["X-CSRF-Token"] = refreshCsrf;
+        }
+
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: refreshHeaders
+        });
+
+        if (refreshRes.ok) {
+          try {
+            csrfToken = await fetchCsrf();
+          } catch (_) {}
+
+          const retryHeaders = { ...(options.headers || {}) };
+
+          if (!(options.body instanceof FormData) && !retryHeaders["Content-Type"]) {
+            retryHeaders["Content-Type"] = "application/json";
+          }
+
+          if (!["GET", "HEAD"].includes(method) && csrfToken) {
+            retryHeaders["X-CSRF-Token"] = csrfToken;
+          }
+
+          res = await fetch(`${API_BASE}${path}`, {
+            ...options,
+            method,
+            headers: retryHeaders,
+            credentials: "include"
+          });
+        }
+      }
+
+      if (res.status === 401) {
+        clearClientSession();
+        alert("ログインしてください");
+        setTimeout(() => {
+          location.href = "/login.html";
+        }, 500);
+        throw new Error("認証エラー");
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "エラー");
+      }
+
+      return res;
+    }
+
     function getStatusBadge(status, currentCount, targetCount) {
       if (status === "active") {
         return `<span class="inline-flex items-center rounded-full bg-green-100 text-green-700 text-xs font-semibold px-3 py-1">販売中</span>`;
@@ -278,10 +391,10 @@
       });
 
       document.querySelectorAll("[data-buy-id]").forEach(el => {
-        el.addEventListener("click", event => {
+        el.addEventListener("click", async event => {
           event.stopPropagation();
           const bundleId = Number(el.getAttribute("data-buy-id"));
-          buyBundle(bundleId);
+          await buyBundle(bundleId);
         });
       });
     }
@@ -313,14 +426,7 @@
     }
 
     async function buyBundle(bundleId) {
-      const token = localStorage.getItem("access_token");
-      const userId = localStorage.getItem("user_id");
       const bundle = allBundles.find(v => Number(v.id) === Number(bundleId));
-
-      if (!token || !userId) {
-        alert("購入にはログインが必要です");
-        return;
-      }
 
       if (!bundle) {
         alert("福袋情報の取得に失敗しました");
@@ -336,23 +442,12 @@
       if (!ok) return;
 
       try {
-        const res = await fetch(`${API_BASE}/bundles/buy`, {
+        await authFetch("/bundles/buy", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
           body: JSON.stringify({
-            user_id: userId,
             bundle_id: bundleId
           })
         });
-
-        const data = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          throw new Error(data.detail || "購入に失敗しました");
-        }
 
         alert("購入が完了しました");
         window.location.href = `bundle-detail.html?id=${encodeURIComponent(bundleId)}&purchased=1`;
