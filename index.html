@@ -1,0 +1,105 @@
+<!-- 変更点：user_id削除 + JWT対応 + API_BASE対応 -->
+<script>
+const API_BASE =
+  window.APP_CONFIG?.API_BASE ||
+  localStorage.getItem("API_BASE") ||
+  "";
+
+/* ─── 表示用ユーザーID（表示のみ） ───────────────── */
+function initUserId() {
+  const uid = localStorage.getItem("user_id");
+  document.getElementById("user_id").value = uid || "未ログイン";
+}
+
+/* ─── Gacha Draw（JWT版） ───────────────── */
+async function drawGacha() {
+  const btn = document.getElementById("gachaBtn");
+  const overlay = document.getElementById("adOverlay");
+  const originalText = btn.innerHTML;
+
+  if (btn.disabled) return;
+
+  const token = localStorage.getItem("access_token");
+  if (!token) {
+    alert("ログインしてください");
+    location.href = "/login.html";
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = "🎰　ガチャ回し中...";
+  overlay.classList.add("show");
+
+  const category = document.getElementById("category").value;
+
+  try {
+    const res = await fetch(`${API_BASE}/gacha/draw`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        category
+      })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      localStorage.setItem("result", JSON.stringify(data.result));
+      location.href = "/result.html";
+    } else {
+      alert(data.detail || "エラーが発生しました");
+      overlay.classList.remove("show");
+    }
+
+  } catch (e) {
+    alert("通信エラーが発生しました");
+    overlay.classList.remove("show");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+}
+
+/* ─── Ranking ───────────────── */
+async function loadRanking() {
+  try {
+    const res = await fetch(`${API_BASE}/ranking`);
+    const data = await res.json();
+    const list = document.getElementById("rankingList");
+    list.innerHTML = "";
+
+    data.forEach((item, i) => {
+      const li = document.createElement("li");
+      li.className = "ranking-item";
+      li.style.animationDelay = `${i * 0.08}s`;
+
+      const numClass = i < 3 ? "rank-num top" : "rank-num";
+      const num = String(i + 1).padStart(2, "0");
+
+      li.innerHTML = `
+        <span class="${numClass}">${num}</span>
+        <span class="rank-text">${item.title}</span>
+      `;
+      list.appendChild(li);
+    });
+
+  } catch {
+    document.getElementById("rankingList").innerHTML =
+      `<li class="ranking-item">
+        <span class="rank-num">—</span>
+        <span class="rank-text" style="color:var(--muted)">
+          ランキングを取得できませんでした
+        </span>
+      </li>`;
+  }
+}
+
+/* ─── Init ───────────────── */
+window.onload = function () {
+  initUserId();
+  loadRanking();
+};
+    </script>
