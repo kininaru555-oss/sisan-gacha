@@ -2,28 +2,547 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>ログイン — 記事自販機ガチャ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>記事自販機ガチャ — 収益化するコンテンツ流通プラットフォーム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
 <style>
-  body { font-family: sans-serif; background: #0f1115; color: #fff; display: flex; justify-content: center; padding-top: 50px; }
-  .card { background: #171a21; padding: 30px; border-radius: 12px; width: 300px; text-align: center; }
-  input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; background: #222; color: #fff; box-sizing: border-box; }
-  button { width: 100%; padding: 12px; border-radius: 5px; border: none; background: #ffd600; font-weight: bold; cursor: pointer; margin-top: 10px; }
+:root {
+  --bg:         #0a0a0f;
+  --surface:    #12121a;
+  --surface2:   #0e0e16;
+  --border:     rgba(255,220,0,0.18);
+  --yellow:     #ffd600;
+  --yellow-dim: rgba(255,214,0,0.08);
+  --amber:      #ff9100;
+  --text:       #e8e8e0;
+  --muted:      #888880;
+  --danger:     #ff4d4d;
+  --success:    #80ffb0;
+  --blue:       #7dd3fc;
+  --font-ja:    'Zen Maru Gothic', sans-serif;
+  --font-mono:  'Share Tech Mono', monospace;
+  --font-dot:   'DotGothic16', sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-ja);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,214,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,214,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 72px;
+  position: relative;
+  z-index: 1;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.logo {
+  font-family: var(--font-dot);
+  color: var(--yellow);
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+}
+
+.top-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.top-links a {
+  color: var(--muted);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,214,0,0.1);
+  border-radius: 4px;
+}
+
+.top-links a:hover {
+  color: var(--yellow);
+  border-color: var(--border);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 18px;
+  align-items: stretch;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,214,0,0.4), transparent);
+}
+
+.hero-copy {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hero-badge {
+  display: inline-block;
+  width: fit-content;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+  border: 1px solid rgba(255,145,0,0.3);
+  padding: 4px 12px;
+  border-radius: 2px;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+.hero-title {
+  font-family: var(--font-dot);
+  font-size: clamp(2rem, 7vw, 3.5rem);
+  line-height: 1.15;
+  color: var(--yellow);
+  text-shadow: 0 0 24px rgba(255,214,0,0.25);
+  margin-bottom: 14px;
+}
+
+.hero-lead {
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.hero-sub {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.login-card .card-title {
+  font-family: var(--font-dot);
+  font-size: 1.5rem;
+  color: var(--yellow);
+  margin-bottom: 6px;
+}
+
+.login-card .card-desc {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+
+.form-row {
+  margin-bottom: 14px;
+}
+
+.form-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,220,0,0.12);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: rgba(255,214,0,0.4);
+  box-shadow: 0 0 0 3px rgba(255,214,0,0.06);
+}
+
+.primary-btn,
+.secondary-btn {
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.15s ease;
+}
+
+.primary-btn {
+  background: var(--yellow);
+  color: #0a0a0f;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.secondary-btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(255,220,0,0.18);
+  margin-top: 10px;
+}
+
+.primary-btn:hover:not(:disabled),
+.secondary-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-note {
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 900px) {
+  .features {
+    grid-template-columns: 1fr;
+  }
+}
+
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,214,0,0.4), transparent);
+}
+
+.feature-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.feature-title {
+  font-family: var(--font-dot);
+  color: var(--yellow);
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.feature-desc {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
+.trust-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 20px;
+  margin-bottom: 18px;
+}
+
+.trust-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--yellow);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.trust-list {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.trust-list li {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+  padding-left: 16px;
+  position: relative;
+}
+
+.trust-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--yellow);
+}
+
+.footer {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255,214,0,0.08);
+  text-align: center;
+}
+
+.footer-links {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.footer-links a {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid rgba(255,214,0,0.1);
+  border-radius: 3px;
+}
+
+.footer-links a:hover {
+  color: var(--yellow);
+  border-color: var(--border);
+}
+
+.footer-copy {
+  font-size: 10px;
+  color: rgba(136,136,128,0.4);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+}
+
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+  z-index: 200;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.error { border-color: rgba(255,77,77,0.4); color: var(--danger); }
+#toast.success { border-color: rgba(128,255,176,0.4); color: var(--success); }
 </style>
 </head>
-<body>
 
-<div class="card">
-  <h2>ログイン</h2>
-  <input id="user_id" placeholder="User ID">
-  <input id="password" type="password" placeholder="Password">
-  <button onclick="login()">ログイン</button>
+<body>
+<div class="wrapper">
+
+  <div class="topbar">
+    <div class="logo">記事自販機ガチャ</div>
+    <div class="top-links">
+      <a href="/terms.html">利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokusho.html">特定商取引法</a>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div class="panel hero-copy">
+      <div class="hero-badge">CONTENT GACHA PLATFORM</div>
+      <h1 class="hero-title">あなたの知恵を<br>ガチャにして、<br>収益に変える。</h1>
+      <p class="hero-lead">
+        書いた記事がガチャ景品になる。<br>
+        引かれる、福袋に入る、再利用される。<br>
+        そのたびに著作者へ収益が積み上がる、新しいコンテンツ流通の形です。
+      </p>
+      <p class="hero-sub">
+        投稿・閲覧・福袋販売・著作者保護までを一つの導線でつなぎます。
+      </p>
+    </div>
+
+    <div class="panel login-card">
+      <div class="card-title">ログイン</div>
+      <div class="card-desc">
+        すでにアカウントがある方はこちらからログインしてください。<br>
+        初めての方は新規登録ページへ進めます。
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="user_id">USER ID</label>
+        <input id="user_id" class="form-input" placeholder="user123" autocomplete="username">
+      </div>
+
+      <div class="form-row">
+        <label class="form-label" for="password">PASSWORD</label>
+        <input id="password" type="password" class="form-input" placeholder="パスワード" autocomplete="current-password">
+      </div>
+
+      <button id="loginBtn" class="primary-btn" onclick="login()">ログインする</button>
+      <button class="secondary-btn" onclick="goRegister()">新規登録ページへ</button>
+
+      <div class="login-note">
+        Cookie認証によりセッション管理されます。<br>
+        書き込み操作にはCSRF保護が適用されています。
+      </div>
+    </div>
+  </section>
+
+  <section class="features">
+    <div class="feature-card">
+      <div class="feature-icon">📝</div>
+      <div class="feature-title">書く</div>
+      <div class="feature-desc">
+        ノウハウ記事・収益化情報・手順書などを投稿。<br>
+        10記事まで無料で登録でき、投稿特典でガチャも回せます。
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">🎰</div>
+      <div class="feature-title">回す</div>
+      <div class="feature-desc">
+        他の誰かが書いた有料級ノウハウを、ガチャ形式で取得。<br>
+        普通の一覧販売とは違う体験価値があります。
+      </div>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon">💰</div>
+      <div class="feature-title">稼ぐ</div>
+      <div class="feature-desc">
+        ガチャ利用、福袋販売、再利用によって著作者や出品者へ分配。<br>
+        書いた記事が継続的な収益源になります。
+      </div>
+    </div>
+  </section>
+
+  <section class="trust-panel">
+    <div class="trust-title">TRUST & SAFETY</div>
+    <ul class="trust-list">
+      <li>Stripe決済導入に対応したポイント購入フロー</li>
+      <li>著作者の再販売許可 / 福袋利用許可 / 掲載停止申請に対応</li>
+      <li>Cookie + refresh token + CSRF による本番向け認証設計</li>
+    </ul>
+  </section>
+
+  <div class="footer">
+    <div class="footer-links">
+      <a href="/terms.html">利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokusho.html">特定商取引法</a>
+    </div>
+    <div class="footer-copy">© 2025 ARTICLE VENDING MACHINE</div>
+  </div>
+
 </div>
 
+<div id="toast"></div>
+
 <script>
-const API_BASE = localStorage.getItem("API_BASE") || "";
+const API_BASE =
+  window.APP_CONFIG?.API_BASE ||
+  localStorage.getItem("API_BASE") ||
+  "";
+
+function showToast(msg, type = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = "show" + (type ? " " + type : "");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ""; }, 2800);
+}
 
 async function fetchCsrf() {
   const res = await fetch(`${API_BASE}/auth/csrf`, {
+    method: "GET",
     credentials: "include"
   });
 
@@ -40,36 +559,72 @@ async function fetchCsrf() {
   return data.csrf_token || "";
 }
 
+function goRegister() {
+  location.href = "/register.html";
+}
+
 async function login() {
   const user_id = document.getElementById("user_id").value.trim();
   const password = document.getElementById("password").value;
+  const btn = document.getElementById("loginBtn");
+
+  if (!user_id) {
+    showToast("ユーザーIDを入力してください", "error");
+    return;
+  }
+
+  if (!password) {
+    showToast("パスワードを入力してください", "error");
+    return;
+  }
+
+  btn.disabled = true;
 
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id, password })
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id,
+        password
+      })
     });
 
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      alert(data.detail || "ログイン失敗");
+      showToast(data.detail || "ログイン失敗", "error");
       return;
     }
 
     localStorage.setItem("user_id", data.user_id || user_id);
-
     await fetchCsrf();
 
-    alert("ログイン成功");
-    location.href = "/mypage.html";
+    showToast("ログイン成功", "success");
+    setTimeout(() => {
+      location.href = "/mypage.html";
+    }, 700);
   } catch (e) {
-    alert(e.message || "通信エラーが発生しました");
+    showToast(e.message || "通信エラーが発生しました", "error");
+  } finally {
+    btn.disabled = false;
   }
 }
+
+document.getElementById("password").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    login();
+  }
+});
 </script>
 
 </body>
 </html>
+'''
+path = "/mnt/data/index_landing_cookie_login.html"
+with open(path, "w", encoding="utf-8") as f:
+    f.write(content)
+print(path)
