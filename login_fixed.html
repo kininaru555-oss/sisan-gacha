@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ログイン — 記事自販機ガチャ</title>
+
+<style>
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #0f1115;
+  color: #fff;
+}
+
+.container {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 40px 16px;
+}
+
+.title {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.card {
+  background: #171a21;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.label {
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: #aaa;
+}
+
+.input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  border: none;
+  background: #222;
+  color: #fff;
+}
+
+.button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  background: #ffd600;
+  color: #000;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.note {
+  text-align: center;
+  font-size: 12px;
+  margin-top: 16px;
+  color: #aaa;
+}
+
+.link {
+  color: #ffd600;
+  cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <div class="title">ログイン</div>
+
+  <div class="card">
+
+    <div class="label">ユーザーID</div>
+    <input id="user_id" class="input" placeholder="user123" autocomplete="username">
+
+    <div class="label">パスワード</div>
+    <input id="password" type="password" class="input" autocomplete="current-password">
+
+    <button id="loginBtn" class="button" onclick="login()">
+      ログイン
+    </button>
+
+  </div>
+
+  <div class="note">
+    アカウントが無い場合は  
+    <a href="/register.html" class="link">新規登録</a>
+  </div>
+</div>
+
+<script>
+const API_BASE =
+  window.APP_CONFIG?.API_BASE ||
+  localStorage.getItem("API_BASE") ||
+  "";
+
+async function login() {
+  const user_id = document.getElementById("user_id").value.trim();
+  const password = document.getElementById("password").value;
+  const btn = document.getElementById("loginBtn");
+
+  if (!user_id) {
+    alert("ユーザーIDを入力してください");
+    return;
+  }
+
+  if (!password) {
+    alert("パスワードを入力してください");
+    return;
+  }
+
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id,
+        password
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      alert(data.detail || "ログイン失敗");
+      btn.disabled = false;
+      return;
+    }
+
+    localStorage.setItem("access_token", data.access_token);
+    localStorage.setItem("user_id", data.user_id || user_id);
+
+    alert("ログイン成功");
+    location.href = "/";
+  } catch (e) {
+    alert("通信エラー");
+    btn.disabled = false;
+  }
+}
+
+document.getElementById("password").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    login();
+  }
+});
+</script>
+
+</body>
+</html>
