@@ -204,6 +204,13 @@ body::after {
   flex-wrap: wrap;
 }
 
+.quick-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
 .button {
   border: 1px solid rgba(255,220,0,0.18);
   background: var(--surface2);
@@ -242,41 +249,53 @@ body::after {
   border-radius: 10px;
 }
 
-.prompt-list {
+.prompt-list,
+.bundle-list {
   display: grid;
   gap: 14px;
 }
-.prompt-card {
+
+.prompt-card,
+.bundle-card {
   background: var(--surface2);
   border: 1px solid rgba(255,220,0,0.12);
   border-radius: 12px;
   padding: 16px;
 }
-.prompt-head {
+
+.prompt-head,
+.bundle-head {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
   margin-bottom: 12px;
 }
-.prompt-title {
+
+.prompt-title,
+.bundle-title {
   font-size: 18px;
   font-weight: 700;
   line-height: 1.45;
 }
-.prompt-meta {
+
+.prompt-meta,
+.bundle-meta {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.7;
 }
-.prompt-url {
+
+.prompt-url,
+.bundle-link {
   display: inline-block;
   margin-top: 8px;
   color: var(--blue);
   text-decoration: none;
   word-break: break-all;
 }
-.prompt-url:hover {
+.prompt-url:hover,
+.bundle-link:hover {
   text-decoration: underline;
 }
 
@@ -315,10 +334,13 @@ body::after {
 
 .action-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
+  grid-template-columns: repeat(4, minmax(0,1fr));
   gap: 10px;
 }
-@media (max-width: 700px) {
+@media (max-width: 860px) {
+  .action-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 520px) {
   .action-grid { grid-template-columns: 1fr; }
 }
 
@@ -369,7 +391,7 @@ body::after {
   opacity: 0;
   transition: all 0.3s;
   pointer-events: none;
-  z-index: 200;
+  z-index: 250;
   white-space: nowrap;
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -402,6 +424,79 @@ body::after {
   font-size: 11px;
   letter-spacing: 0.15em;
   color: var(--muted);
+}
+
+#editModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  backdrop-filter: blur(3px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 220;
+}
+#editModal.show {
+  display: flex;
+}
+.modal-card {
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  position: relative;
+}
+.modal-title {
+  font-family: var(--font-dot);
+  font-size: 1.4rem;
+  color: var(--yellow);
+  margin-bottom: 8px;
+}
+.modal-desc {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+.form-row {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.form-input,
+.form-textarea,
+.form-select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,220,0,0.12);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+.form-textarea {
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.7;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 18px;
 }
 
 @keyframes fadeUp {
@@ -470,6 +565,18 @@ body::after {
         <button class="button danger" onclick="logout()">ログアウト</button>
       </div>
     </div>
+    <div class="quick-links">
+      <button class="button" onclick="goBundles()">福袋一覧へ</button>
+      <button class="button" onclick="goRecruitingBundles()">募集中福袋へ</button>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-title">▶ PURCHASED BUNDLES</div>
+    <div id="bundle-list" class="bundle-list"></div>
+    <div id="bundle-empty" class="empty-box" style="display:none;">
+      購入済み福袋はまだありません。
+    </div>
   </div>
 
   <div class="section-card">
@@ -497,6 +604,48 @@ body::after {
   </div>
 </div>
 
+<div id="editModal">
+  <div class="modal-card">
+    <div class="modal-title">記事を編集する</div>
+    <div class="modal-desc">
+      タイトル・本文・カテゴリ・URLを更新できます。
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="editTitle">TITLE</label>
+      <input id="editTitle" class="form-input" maxlength="80">
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="editCategory">CATEGORY</label>
+      <select id="editCategory" class="form-select">
+        <option value="副業">副業</option>
+        <option value="収益化">収益化</option>
+        <option value="note・情報販売">note・情報販売</option>
+        <option value="SNS運用">SNS運用</option>
+        <option value="マーケティング">マーケティング</option>
+        <option value="AI活用">AI活用</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="editUrl">URL</label>
+      <input id="editUrl" class="form-input" maxlength="500" placeholder="https://example.com/article">
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="editContent">CONTENT</label>
+      <textarea id="editContent" class="form-textarea" maxlength="10000"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="button" onclick="closeEditModal()">閉じる</button>
+      <button class="button primary" id="saveEditButton" onclick="savePromptEdit()">保存する</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -504,6 +653,9 @@ const API_BASE =
   window.APP_CONFIG?.API_BASE ||
   localStorage.getItem("API_BASE") ||
   "";
+
+let promptMap = new Map();
+let editingPromptId = null;
 
 /* ─── ユーティリティ ───────────────── */
 function showToast(msg, type = "") {
@@ -583,6 +735,14 @@ function goRegister() {
   location.href = "/register.html";
 }
 
+function goBundles() {
+  location.href = "/bundles.html";
+}
+
+function goRecruitingBundles() {
+  location.href = "/bundles.html?filter=recruiting";
+}
+
 async function logout() {
   try {
     let csrf = getCsrfToken();
@@ -593,9 +753,7 @@ async function logout() {
       credentials: "include",
       headers: csrf ? { "X-CSRF-Token": csrf } : {}
     });
-  } catch (_) {
-    // ログアウトはクライアント側削除を優先
-  }
+  } catch (_) {}
 
   clearClientSession();
   showToast("ログアウトしました", "success");
@@ -603,6 +761,8 @@ async function logout() {
   resetSummary();
   document.getElementById("prompt-list").innerHTML = "";
   document.getElementById("prompt-empty").style.display = "block";
+  document.getElementById("bundle-list").innerHTML = "";
+  document.getElementById("bundle-empty").style.display = "block";
 
   setTimeout(() => {
     location.href = "/login.html";
@@ -643,9 +803,7 @@ async function authFetch(path, options = {}) {
   if (!csrfToken) {
     try {
       csrfToken = await fetchCsrf();
-    } catch (_) {
-      // GET系なら継続、POST系は後で失敗させる
-    }
+    } catch (_) {}
   }
 
   const headers = { ...(options.headers || {}) };
@@ -738,6 +896,69 @@ async function loadSummary() {
   document.getElementById("summary-post-count").textContent = formatNumber(mypage.post_count);
 }
 
+async function loadPurchasedBundles() {
+  const res = await authFetch("/mypage/bundles");
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail || "購入済み福袋一覧の取得に失敗しました");
+  }
+  const items = await res.json();
+  renderPurchasedBundles(items);
+}
+
+function renderPurchasedBundles(items) {
+  const list = document.getElementById("bundle-list");
+  const empty = document.getElementById("bundle-empty");
+  list.innerHTML = "";
+
+  if (!Array.isArray(items) || items.length === 0) {
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  for (const item of items) {
+    const badgeClass =
+      item.status === "active" ? "ok" :
+      item.status === "recruiting" ? "pending" : "off";
+
+    const badgeText =
+      item.status === "active" ? "販売中" :
+      item.status === "recruiting" ? "募集中" : "販売終了";
+
+    const card = document.createElement("article");
+    card.className = "bundle-card";
+    card.innerHTML = `
+      <div class="bundle-head">
+        <div>
+          <div class="bundle-title">${escapeHtml(item.title || "無題の福袋")}</div>
+          <div class="bundle-meta">
+            ジャンル: ${escapeHtml(item.genre || "その他")}<br>
+            購入日時: ${escapeHtml(formatDate(item.purchased_at)) || "-"}<br>
+            価格: ${formatNumber(item.price_points)} pt
+            ${item.published_at ? `<br>公開日: ${escapeHtml(formatDate(item.published_at))}` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div class="badge-row">
+        <span class="badge ${badgeClass}">● ${badgeText}</span>
+        <span class="badge ok">● 購入済み</span>
+      </div>
+
+      <div class="bundle-meta">
+        ${escapeHtml(item.description || "説明はまだありません。")}
+      </div>
+
+      <a class="bundle-link" href="/bundle-detail.html?id=${encodeURIComponent(item.bundle_id)}&purchased=1">
+        福袋詳細を見る
+      </a>
+    `;
+    list.appendChild(card);
+  }
+}
+
 async function loadPrompts() {
   const res = await authFetch("/mypage/prompts");
   if (!res.ok) {
@@ -745,6 +966,7 @@ async function loadPrompts() {
     throw new Error(data.detail || "投稿記事一覧の取得に失敗しました");
   }
   const items = await res.json();
+  promptMap = new Map(items.map(item => [Number(item.id), item]));
   renderPromptList(items);
 }
 
@@ -792,6 +1014,9 @@ function renderPromptList(items) {
       </div>
 
       <div class="action-grid">
+        <button class="button" data-action="edit" data-id="${item.id}">
+          編集する
+        </button>
         <button class="button" data-action="resale" data-id="${item.id}" data-enabled="${resaleOn ? "0" : "1"}">
           ${resaleOn ? "再販売をOFFにする" : "再販売をONにする"}
         </button>
@@ -811,6 +1036,13 @@ function renderPromptList(items) {
 }
 
 function bindPromptActions() {
+  document.querySelectorAll("[data-action='edit']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const promptId = Number(btn.dataset.id);
+      openEditModal(promptId);
+    });
+  });
+
   document.querySelectorAll("[data-action='resale']").forEach(btn => {
     btn.addEventListener("click", async () => {
       const promptId = Number(btn.dataset.id);
@@ -833,6 +1065,78 @@ function bindPromptActions() {
       await requestStop(promptId);
     });
   });
+}
+
+/* ─── 編集UI ───────────────── */
+function openEditModal(promptId) {
+  const item = promptMap.get(Number(promptId));
+  if (!item) {
+    showToast("記事情報の取得に失敗しました", "error");
+    return;
+  }
+
+  editingPromptId = Number(promptId);
+  document.getElementById("editTitle").value = item.title || "";
+  document.getElementById("editCategory").value = item.category || "その他";
+  document.getElementById("editUrl").value = item.url || "";
+  document.getElementById("editContent").value = item.content || "";
+  document.getElementById("editModal").classList.add("show");
+}
+
+function closeEditModal() {
+  editingPromptId = null;
+  document.getElementById("editModal").classList.remove("show");
+}
+
+async function savePromptEdit() {
+  if (!editingPromptId) return;
+
+  const title = document.getElementById("editTitle").value.trim();
+  const category = document.getElementById("editCategory").value;
+  const url = document.getElementById("editUrl").value.trim();
+  const content = document.getElementById("editContent").value.trim();
+  const saveButton = document.getElementById("saveEditButton");
+
+  if (!title) {
+    showToast("タイトルを入力してください", "error");
+    return;
+  }
+  if (!content) {
+    showToast("本文を入力してください", "error");
+    return;
+  }
+  if (content.length < 200) {
+    showToast("本文は最低200文字以上で入力してください", "error");
+    return;
+  }
+  if (content.length > 10000) {
+    showToast("本文は10000文字以内で入力してください", "error");
+    return;
+  }
+
+  saveButton.disabled = true;
+  try {
+    const res = await authFetch(`/mypage/prompts/${editingPromptId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title,
+        content,
+        category,
+        url: url || null
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "記事の更新に失敗しました");
+
+    showToast("記事を更新しました", "success");
+    closeEditModal();
+    await loadPrompts();
+  } catch (e) {
+    showToast(e.message || "記事の更新に失敗しました", "error");
+  } finally {
+    saveButton.disabled = false;
+  }
 }
 
 /* ─── アクション関数 ───────────────── */
@@ -905,17 +1209,28 @@ async function initPage() {
 
   try {
     await fetchCsrf();
-    await loadSummary();
-    await loadPrompts();
+    await Promise.all([
+      loadSummary(),
+      loadPurchasedBundles(),
+      loadPrompts()
+    ]);
   } catch (e) {
     updateSessionBox(false);
     document.getElementById("prompt-list").innerHTML = "";
     document.getElementById("prompt-empty").style.display = "block";
+    document.getElementById("bundle-list").innerHTML = "";
+    document.getElementById("bundle-empty").style.display = "block";
     showToast(e.message || "マイページの読み込みに失敗しました", "error");
   } finally {
     setLoading(false);
   }
 }
+
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") {
+    closeEditModal();
+  }
+});
 
 window.onload = initPage;
 </script>
