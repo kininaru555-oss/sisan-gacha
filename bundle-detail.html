@@ -5,90 +5,242 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title id="page-title">福袋詳細</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .glass-card {
+      backdrop-filter: blur(10px);
+      background: rgba(255,255,255,0.92);
+    }
+    .pulse-soft {
+      animation: pulseSoft 2s infinite;
+    }
+    @keyframes pulseSoft {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.02); opacity: 0.96; }
+    }
+  </style>
 </head>
-<body class="bg-white text-gray-900 min-h-screen pb-24">
-  <div class="max-w-2xl mx-auto">
-    <div class="bg-gray-100 aspect-square flex items-center justify-center relative">
-      <div class="text-[160px] sm:text-[220px]">🎁</div>
-      <div id="status-badge" class="absolute top-4 left-4 bg-gray-700 text-white text-sm font-bold px-5 py-1.5 rounded-2xl shadow">
-        読み込み中
-      </div>
-    </div>
-
-    <div class="px-5 pt-6 pb-8">
-      <div class="mb-4">
-        <a href="bundles.html" class="text-sm text-orange-600 hover:text-orange-700">
-          ← 福袋一覧へ戻る
+<body class="bg-white text-gray-900 min-h-screen">
+  <div class="min-h-screen bg-gradient-to-b from-orange-50 via-white to-white">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div class="mb-5">
+        <a href="/bundles.html" class="inline-flex items-center gap-2 text-sm text-orange-600 hover:text-orange-700 font-medium">
+          <span>←</span>
+          <span>福袋一覧へ戻る</span>
         </a>
       </div>
 
-      <h1 id="bundle-title" class="text-2xl font-bold leading-tight">読み込み中...</h1>
-
-      <p id="bundle-description" class="text-gray-600 mt-3 text-[15.5px] leading-relaxed">
-        福袋情報を読み込んでいます
-      </p>
-
-      <div class="mt-8 bg-orange-50 border border-orange-100 rounded-3xl p-6">
-        <div class="flex items-end gap-2">
-          <span id="price" class="text-5xl font-bold text-orange-600">--</span>
-          <span class="text-2xl text-orange-600/70 font-medium">pt</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-6 mt-7 text-sm">
-          <div>
-            <span class="block text-gray-500 text-xs">ジャンル</span>
-            <span id="genre" class="font-semibold text-lg">--</span>
-          </div>
-          <div>
-            <span class="block text-gray-500 text-xs">状態</span>
-            <span id="status-text" class="font-semibold text-lg">--</span>
-          </div>
-          <div>
-            <span class="block text-gray-500 text-xs">現在件数</span>
-            <span id="current-count" class="font-medium">--</span>
-          </div>
-          <div>
-            <span class="block text-gray-500 text-xs">目標件数</span>
-            <span id="target-count" class="font-medium">--</span>
-          </div>
-        </div>
-
-        <div class="mt-5">
-          <div class="w-full bg-gray-200 rounded-full h-3">
-            <div id="progress-bar" class="bg-amber-500 h-3 rounded-full" style="width:0%"></div>
-          </div>
-          <div id="progress-text" class="text-xs text-gray-500 mt-2">--</div>
-        </div>
+      <div id="loadingSection" class="py-20 text-center">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-orange-100 text-2xl">⏳</div>
+        <p class="mt-4 text-gray-500">福袋情報を読み込み中...</p>
       </div>
 
-      <div class="mt-10">
-        <h3 class="font-semibold text-lg mb-4">福袋の説明</h3>
-        <div id="detail-text" class="text-gray-700 text-[15px] leading-relaxed space-y-4">
-          <p>読み込み中です。</p>
-        </div>
+      <div id="errorSection" class="hidden py-20 text-center">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-red-100 text-2xl">⚠️</div>
+        <p id="errorMessage" class="mt-4 text-red-500 font-medium">読み込みに失敗しました</p>
       </div>
 
-      <div id="bundle-items-box" class="mt-10 hidden">
-        <h3 class="font-semibold text-lg mb-4">購入済み内容</h3>
-        <div id="bundle-items" class="space-y-4"></div>
+      <div id="pageBody" class="hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-[1.08fr_0.92fr] gap-8 items-start">
+          <section class="space-y-6">
+            <div class="rounded-3xl overflow-hidden border border-orange-100 bg-white shadow-sm">
+              <div class="relative aspect-[4/3] bg-gradient-to-br from-orange-100 via-amber-50 to-white flex items-center justify-center">
+                <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(251,146,60,0.18),transparent_35%),radial-gradient(circle_at_80%_30%,rgba(251,191,36,0.16),transparent_35%),radial-gradient(circle_at_50%_80%,rgba(249,115,22,0.10),transparent_40%)]"></div>
+                <div class="relative z-10 text-center px-6">
+                  <div class="text-[90px] sm:text-[120px] leading-none">🎁</div>
+                  <div class="mt-4 flex flex-wrap items-center justify-center gap-2" id="heroBadges"></div>
+                </div>
+                <div id="statusBadge" class="absolute top-4 left-4 rounded-full px-4 py-2 text-sm font-bold text-white shadow">
+                  読み込み中
+                </div>
+              </div>
+
+              <div class="p-5 sm:p-7">
+                <div class="flex flex-wrap items-center gap-2 mb-3" id="microBadges"></div>
+
+                <h1 id="bundle-title" class="text-2xl sm:text-3xl font-bold leading-tight">
+                  読み込み中...
+                </h1>
+
+                <p id="bundle-description" class="mt-4 text-gray-600 leading-relaxed text-[15px] sm:text-base">
+                  福袋の説明を読み込み中です。
+                </p>
+
+                <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div class="rounded-2xl border border-gray-200 p-4 bg-white">
+                    <div class="text-[11px] tracking-wide text-gray-500">ジャンル</div>
+                    <div id="genre" class="mt-1 font-semibold text-lg">--</div>
+                  </div>
+                  <div class="rounded-2xl border border-gray-200 p-4 bg-white">
+                    <div class="text-[11px] tracking-wide text-gray-500">状態</div>
+                    <div id="status-text" class="mt-1 font-semibold text-lg">--</div>
+                  </div>
+                  <div class="rounded-2xl border border-gray-200 p-4 bg-white">
+                    <div class="text-[11px] tracking-wide text-gray-500">収録記事数</div>
+                    <div id="target-count" class="mt-1 font-semibold text-lg">--</div>
+                  </div>
+                  <div class="rounded-2xl border border-gray-200 p-4 bg-white">
+                    <div class="text-[11px] tracking-wide text-gray-500">購入件数</div>
+                    <div id="purchase-count" class="mt-1 font-semibold text-lg">--</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+              <div class="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <h2 class="text-lg font-bold">福袋の魅力</h2>
+                  <p class="text-sm text-gray-500 mt-1">買う前に押さえておきたいポイント</p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="rounded-2xl bg-orange-50 border border-orange-100 p-4">
+                  <div class="text-2xl">📚</div>
+                  <div class="mt-3 font-semibold">まとめて取得</div>
+                  <p class="mt-2 text-sm text-gray-600">
+                    単品で探すよりも、テーマに沿った記事をまとめて入手できます。
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-amber-50 border border-amber-100 p-4">
+                  <div class="text-2xl">⚡</div>
+                  <div class="mt-3 font-semibold">すぐ読める</div>
+                  <p class="mt-2 text-sm text-gray-600">
+                    購入完了後すぐに中身を確認可能。待ち時間なく閲覧に進めます。
+                  </p>
+                </div>
+                <div class="rounded-2xl bg-orange-50 border border-orange-100 p-4">
+                  <div class="text-2xl">💡</div>
+                  <div class="mt-3 font-semibold">収益化導線</div>
+                  <p class="mt-2 text-sm text-gray-600">
+                    収益化・副業・実践ノウハウを効率よく吸収したい人向けです。
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+              <div class="flex items-center justify-between gap-4 mb-4">
+                <div>
+                  <h2 class="text-lg font-bold">進捗 / 信頼情報</h2>
+                  <p class="text-sm text-gray-500 mt-1">募集中でも、どこまで集まっているか一目で分かります</p>
+                </div>
+                <div id="progressBadge" class="text-xs font-semibold rounded-full px-3 py-1 bg-gray-100 text-gray-600">
+                  --
+                </div>
+              </div>
+
+              <div class="rounded-2xl bg-gray-50 border border-gray-200 p-4 sm:p-5">
+                <div class="flex items-center justify-between text-sm mb-2">
+                  <span class="text-gray-600">収集進捗</span>
+                  <span id="progressTextTop" class="font-semibold">--</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div id="progress-bar" class="bg-gradient-to-r from-amber-400 to-orange-500 h-3 rounded-full transition-all duration-500" style="width:0%"></div>
+                </div>
+                <p id="progress-text" class="text-xs text-gray-500 mt-3">--</p>
+              </div>
+
+              <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div class="rounded-2xl border border-gray-200 p-4">
+                  <div class="text-gray-500">現在件数</div>
+                  <div id="current-count" class="mt-1 font-bold text-lg">--</div>
+                </div>
+                <div class="rounded-2xl border border-gray-200 p-4">
+                  <div class="text-gray-500">募集目標</div>
+                  <div id="target-count-second" class="mt-1 font-bold text-lg">--</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="space-y-6 lg:sticky lg:top-6">
+            <div class="glass-card rounded-3xl border border-orange-100 p-5 sm:p-6 shadow-lg">
+              <div class="text-xs tracking-[0.18em] text-orange-500 font-semibold">PURCHASE PANEL</div>
+
+              <div class="mt-4 flex items-end gap-2">
+                <span id="price" class="text-5xl font-black text-orange-600 leading-none">--</span>
+                <span class="text-2xl font-semibold text-orange-400">pt</span>
+              </div>
+
+              <div class="mt-3">
+                <div id="priceSubText" class="text-sm text-gray-500">内容と進捗に応じて判断できます</div>
+              </div>
+
+              <div class="mt-5 rounded-2xl bg-orange-50 border border-orange-100 p-4">
+                <div class="flex items-center justify-between gap-4 text-sm">
+                  <span class="text-gray-600">購入状態</span>
+                  <span id="purchaseState" class="font-semibold text-gray-800">確認中</span>
+                </div>
+                <div class="mt-2 flex items-center justify-between gap-4 text-sm">
+                  <span class="text-gray-600">人気度</span>
+                  <span id="popularityText" class="font-semibold text-gray-800">確認中</span>
+                </div>
+              </div>
+
+              <div class="mt-6 space-y-3">
+                <button
+                  id="buy-button"
+                  class="w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-lg py-4 rounded-2xl pulse-soft"
+                >
+                  読み込み中...
+                </button>
+
+                <a
+                  id="secondaryAction"
+                  href="/bundles.html"
+                  class="w-full inline-flex items-center justify-center border border-orange-200 text-orange-700 hover:bg-orange-50 font-semibold py-3 rounded-2xl"
+                >
+                  他の福袋も見る
+                </a>
+              </div>
+
+              <div class="mt-4">
+                <p id="buy-note" class="text-center text-xs text-gray-500">
+                  状態に応じて購入可否が切り替わります
+                </p>
+              </div>
+            </div>
+
+            <div id="purchasedBox" class="hidden rounded-3xl border border-green-200 bg-green-50 p-5 shadow-sm">
+              <div class="flex items-start gap-3">
+                <div class="text-2xl">✅</div>
+                <div>
+                  <div class="font-bold text-green-800">この福袋は購入済みです</div>
+                  <p class="mt-1 text-sm text-green-700">下の「購入済み内容」からすぐに記事を確認できます。</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+              <h3 class="font-bold text-lg">購入前の目安</h3>
+              <ul class="mt-4 space-y-3 text-sm text-gray-600">
+                <li>・副業や収益化をまとめて学びたい人向け</li>
+                <li>・単品探索より、まとまったテーマ収集に向いています</li>
+                <li>・購入済みなら再訪して中身をいつでも確認できます</li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+
+        <section id="bundle-items-box" class="mt-10 hidden">
+          <div class="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-5">
+              <div>
+                <h2 class="text-xl font-bold">購入済み内容</h2>
+                <p class="text-sm text-gray-500 mt-1">この福袋に含まれる記事一覧です</p>
+              </div>
+              <div id="itemsSummary" class="text-sm text-gray-500">--</div>
+            </div>
+
+            <div id="bundle-items" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+          </div>
+        </section>
       </div>
     </div>
   </div>
 
-  <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-4 px-5 z-50 shadow">
-    <div class="max-w-2xl mx-auto">
-      <button
-        id="buy-button"
-        class="w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-lg py-4 rounded-2xl"
-      >
-        読み込み中...
-      </button>
-
-      <p id="buy-note" class="text-center text-xs text-gray-500 mt-3">
-        状態に応じて購入可否が切り替わります
-      </p>
-    </div>
-  </div>
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 translate-y-4 opacity-0 pointer-events-none transition-all duration-300 z-[120] px-4 py-3 rounded-xl border bg-white text-sm shadow-lg"></div>
 
   <script>
     const API_BASE =
@@ -97,6 +249,30 @@
       "";
 
     let bundleData = null;
+    let purchaseStatus = false;
+
+    function showToast(message, type = "info") {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.className = "fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] px-4 py-3 rounded-xl border bg-white text-sm shadow-lg transition-all duration-300";
+
+      if (type === "success") {
+        toast.classList.add("border-green-200", "text-green-700");
+      } else if (type === "error") {
+        toast.classList.add("border-red-200", "text-red-600");
+      } else {
+        toast.classList.add("border-gray-200", "text-gray-700");
+      }
+
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-4", "opacity-0");
+      });
+
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => {
+        toast.classList.add("translate-y-4", "opacity-0");
+      }, 2600);
+    }
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -143,9 +319,7 @@
       if (!csrfToken) {
         try {
           csrfToken = await fetchCsrf();
-        } catch (_) {
-          // GET系はそのまま続行
-        }
+        } catch (_) {}
       }
 
       const headers = { ...(options.headers || {}) };
@@ -205,10 +379,10 @@
 
       if (res.status === 401) {
         clearClientSession();
-        alert("ログインしてください");
+        showToast("ログインしてください", "error");
         setTimeout(() => {
           location.href = "/login.html";
-        }, 500);
+        }, 700);
         throw new Error("認証エラー");
       }
 
@@ -225,11 +399,6 @@
       return params.get("id");
     }
 
-    function isPurchasedMode() {
-      const params = new URLSearchParams(window.location.search);
-      return params.get("purchased") === "1";
-    }
-
     function getStatusText(status) {
       if (status === "active") return "販売中";
       if (status === "closed") return "販売終了";
@@ -242,9 +411,41 @@
       return "bg-amber-500";
     }
 
+    function buildHeroBadges(bundle) {
+      const badges = [];
+      if (bundle.status === "active") {
+        badges.push('<span class="inline-flex items-center rounded-full bg-green-100 text-green-700 text-xs font-semibold px-3 py-1">今すぐ購入可能</span>');
+      }
+      if ((bundle.purchase_count || 0) >= 5) {
+        badges.push(`<span class="inline-flex items-center rounded-full bg-red-100 text-red-600 text-xs font-semibold px-3 py-1">人気 ${bundle.purchase_count}件購入</span>`);
+      }
+      if (bundle.status === "recruiting" && (bundle.remaining_article_count || 0) <= 3) {
+        badges.push('<span class="inline-flex items-center rounded-full bg-orange-100 text-orange-700 text-xs font-semibold px-3 py-1">残りわずか</span>');
+      }
+      if (purchaseStatus) {
+        badges.push('<span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1">購入済み</span>');
+      }
+      return badges.join("");
+    }
+
+    function buildMicroBadges(bundle) {
+      const list = [];
+      list.push(`<span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1">${escapeHtml(bundle.genre || "その他")}</span>`);
+      if ((bundle.purchase_count || 0) > 0) {
+        list.push(`<span class="inline-flex items-center rounded-full bg-red-50 text-red-600 text-xs font-semibold px-3 py-1">🔥 ${bundle.purchase_count}件購入</span>`);
+      }
+      if (bundle.current_article_count >= bundle.target_article_count) {
+        list.push('<span class="inline-flex items-center rounded-full bg-amber-50 text-amber-700 text-xs font-semibold px-3 py-1">収録完了</span>');
+      }
+      return list.join("");
+    }
+
     function updateBuyArea() {
       const button = document.getElementById("buy-button");
       const note = document.getElementById("buy-note");
+      const purchaseState = document.getElementById("purchaseState");
+      const popularityText = document.getElementById("popularityText");
+      const purchasedBox = document.getElementById("purchasedBox");
 
       if (!bundleData) {
         button.disabled = true;
@@ -252,9 +453,25 @@
         return;
       }
 
+      purchaseState.textContent = purchaseStatus ? "購入済み" : "未購入";
+      popularityText.textContent = (bundleData.purchase_count || 0) > 0
+        ? `${bundleData.purchase_count}件購入`
+        : "購入履歴なし";
+
+      if (purchaseStatus) {
+        purchasedBox.classList.remove("hidden");
+        button.disabled = false;
+        button.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-4 rounded-2xl";
+        button.textContent = "購入済み内容を見る";
+        note.textContent = "購入済みなので、内容確認へ進めます";
+        return;
+      }
+
+      purchasedBox.classList.add("hidden");
+
       if (bundleData.status === "active") {
         button.disabled = false;
-        button.className = "w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-lg py-4 rounded-2xl";
+        button.className = "w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-lg py-4 rounded-2xl pulse-soft";
         button.textContent = `${Number(bundleData.price_points || 0)} pt で購入する`;
         note.textContent = "購入後すぐに内容確認可能です";
         return;
@@ -274,138 +491,4 @@
       );
       button.disabled = true;
       button.className = "w-full bg-amber-100 text-amber-700 font-bold text-lg py-4 rounded-2xl cursor-default";
-      button.textContent = "募集中";
-      note.textContent = `あと ${remain} 件集まると販売開始です`;
-    }
-
-    function renderBundle() {
-      if (!bundleData) return;
-
-      const currentCount = Number(bundleData.current_article_count || 0);
-      const targetCount = Number(bundleData.target_article_count || 0);
-      const remain = Math.max(targetCount - currentCount, 0);
-      const percent = targetCount > 0 ? Math.min(Math.floor((currentCount / targetCount) * 100), 100) : 0;
-
-      document.getElementById("page-title").textContent = `${bundleData.title} - 福袋詳細`;
-      document.getElementById("bundle-title").textContent = bundleData.title || "無題の福袋";
-      document.getElementById("bundle-description").textContent = bundleData.description || "説明はまだありません";
-      document.getElementById("price").textContent = Number(bundleData.price_points || 0);
-      document.getElementById("genre").textContent = bundleData.genre || "その他";
-      document.getElementById("status-text").textContent = getStatusText(bundleData.status);
-      document.getElementById("current-count").textContent = `${currentCount} 件`;
-      document.getElementById("target-count").textContent = `${targetCount} 件`;
-
-      const statusBadge = document.getElementById("status-badge");
-      statusBadge.className = `absolute top-4 left-4 text-white text-sm font-bold px-5 py-1.5 rounded-2xl shadow ${getStatusBadgeClass(bundleData.status)}`;
-      statusBadge.textContent = getStatusText(bundleData.status);
-
-      document.getElementById("progress-bar").style.width = `${percent}%`;
-      document.getElementById("progress-text").textContent =
-        bundleData.status === "recruiting"
-          ? `進捗 ${currentCount} / ${targetCount} 件（あと ${remain} 件）`
-          : `収録記事数 ${targetCount} 件`;
-
-      document.getElementById("detail-text").innerHTML = `
-        <p>${escapeHtml(bundleData.description || "説明はまだありません。")}</p>
-        <p>ジャンル: ${escapeHtml(bundleData.genre || "その他")}</p>
-        <p>状態: ${escapeHtml(getStatusText(bundleData.status))}</p>
-      `;
-
-      updateBuyArea();
-    }
-
-    async function loadBundleDetail() {
-      const bundleId = getBundleIdFromQuery();
-      if (!bundleId) {
-        alert("bundle_id が指定されていません");
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_BASE}/bundles/${encodeURIComponent(bundleId)}`);
-        if (!res.ok) throw new Error("福袋詳細の取得に失敗しました");
-
-        bundleData = await res.json();
-        renderBundle();
-
-        if (isPurchasedMode()) {
-          await loadPurchasedItems();
-        }
-      } catch (err) {
-        console.error(err);
-        alert(err.message || "福袋の読み込みに失敗しました");
-      }
-    }
-
-    async function buyBundle() {
-      if (!bundleData) {
-        alert("福袋データの読み込み前です");
-        return;
-      }
-
-      if (bundleData.status !== "active") {
-        alert("この福袋はまだ購入できません");
-        return;
-      }
-
-      const ok = confirm(`「${bundleData.title}」を ${bundleData.price_points}pt で購入しますか？`);
-      if (!ok) return;
-
-      try {
-        await authFetch("/bundles/buy", {
-          method: "POST",
-          body: JSON.stringify({
-            bundle_id: bundleData.id
-          })
-        });
-
-        alert("購入が完了しました");
-        const url = new URL(window.location.href);
-        url.searchParams.set("purchased", "1");
-        window.location.href = url.toString();
-      } catch (err) {
-        console.error(err);
-        alert(err.message || "購入に失敗しました");
-      }
-    }
-
-    async function loadPurchasedItems() {
-      if (!bundleData?.id) return;
-
-      try {
-        const res = await authFetch(`/bundles/${encodeURIComponent(bundleData.id)}/items`);
-        const items = await res.json().catch(() => ([]));
-
-        if (!Array.isArray(items) || items.length === 0) return;
-
-        const box = document.getElementById("bundle-items-box");
-        const container = document.getElementById("bundle-items");
-        box.classList.remove("hidden");
-
-        container.innerHTML = items.map(item => `
-          <div class="border border-gray-200 rounded-2xl p-4">
-            <div class="text-sm text-gray-500 mb-1">${escapeHtml(item.category || "カテゴリ未設定")}</div>
-            <div class="font-bold text-lg mb-2">${escapeHtml(item.title || "無題")}</div>
-            <div class="text-gray-700 whitespace-pre-wrap break-words">${escapeHtml(item.content || "")}</div>
-            ${item.url ? `
-              <a
-                href="${escapeHtml(item.url)}"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-block mt-3 text-orange-600 hover:text-orange-700 text-sm"
-              >
-                元URLを開く
-              </a>
-            ` : ""}
-          </div>
-        `).join("");
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    document.getElementById("buy-button").addEventListener("click", buyBundle);
-    window.addEventListener("load", loadBundleDetail);
-  </script>
-</body>
-</html>
+      button.textConte
