@@ -107,6 +107,119 @@
         .replaceAll("'", "&#39;");
     }
 
+    function getCsrfToken() {
+      return localStorage.getItem("csrf_token") || "";
+    }
+
+    function clearClientSession() {
+      localStorage.removeItem("user_id");
+      localStorage.removeItem("csrf_token");
+    }
+
+    async function fetchCsrf() {
+      const res = await fetch(`${API_BASE}/auth/csrf`, {
+        method: "GET",
+        credentials: "include"
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.detail || "CSRF取得失敗");
+      }
+
+      const csrfToken = data.csrf_token || "";
+      if (csrfToken) {
+        localStorage.setItem("csrf_token", csrfToken);
+      }
+
+      return csrfToken;
+    }
+
+    async function authFetch(path, options = {}) {
+      const method = (options.method || "GET").toUpperCase();
+      let csrfToken = getCsrfToken();
+
+      if (!csrfToken) {
+        try {
+          csrfToken = await fetchCsrf();
+        } catch (_) {
+          // GET系はそのまま続行
+        }
+      }
+
+      const headers = { ...(options.headers || {}) };
+
+      if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+      }
+
+      if (!["GET", "HEAD"].includes(method) && csrfToken) {
+        headers["X-CSRF-Token"] = csrfToken;
+      }
+
+      let res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        method,
+        headers,
+        credentials: "include"
+      });
+
+      if (res.status === 401 && path !== "/auth/refresh") {
+        const refreshHeaders = {};
+        const refreshCsrf = getCsrfToken() || csrfToken;
+
+        if (refreshCsrf) {
+          refreshHeaders["X-CSRF-Token"] = refreshCsrf;
+        }
+
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+          method: "POST",
+          credentials: "include",
+          headers: refreshHeaders
+        });
+
+        if (refreshRes.ok) {
+          try {
+            csrfToken = await fetchCsrf();
+          } catch (_) {}
+
+          const retryHeaders = { ...(options.headers || {}) };
+
+          if (!(options.body instanceof FormData) && !retryHeaders["Content-Type"]) {
+            retryHeaders["Content-Type"] = "application/json";
+          }
+
+          if (!["GET", "HEAD"].includes(method) && csrfToken) {
+            retryHeaders["X-CSRF-Token"] = csrfToken;
+          }
+
+          res = await fetch(`${API_BASE}${path}`, {
+            ...options,
+            method,
+            headers: retryHeaders,
+            credentials: "include"
+          });
+        }
+      }
+
+      if (res.status === 401) {
+        clearClientSession();
+        alert("ログインしてください");
+        setTimeout(() => {
+          location.href = "/login.html";
+        }, 500);
+        throw new Error("認証エラー");
+      }
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "エラー");
+      }
+
+      return res;
+    }
+
     function getBundleIdFromQuery() {
       const params = new URLSearchParams(window.location.search);
       return params.get("id");
@@ -225,14 +338,6 @@
     }
 
     async function buyBundle() {
-      const token = localStorage.getItem("access_token");
-      const userId = localStorage.getItem("user_id");
-
-      if (!token || !userId) {
-        alert("購入にはログインが必要です");
-        return;
-      }
-
       if (!bundleData) {
         alert("福袋データの読み込み前です");
         return;
@@ -247,20 +352,12 @@
       if (!ok) return;
 
       try {
-        const res = await fetch(`${API_BASE}/bundles/buy`, {
+        await authFetch("/bundles/buy", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
           body: JSON.stringify({
-            user_id: userId,
             bundle_id: bundleData.id
           })
         });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || "購入に失敗しました");
 
         alert("購入が完了しました");
         const url = new URL(window.location.href);
@@ -273,24 +370,12 @@
     }
 
     async function loadPurchasedItems() {
-      const token = localStorage.getItem("access_token");
-      const userId = localStorage.getItem("user_id");
-
-      if (!token || !userId || !bundleData?.id) return;
+      if (!bundleData?.id) return;
 
       try {
-        const res = await fetch(
-          `${API_BASE}/bundles/${encodeURIComponent(bundleData.id)}/items/${encodeURIComponent(userId)}`,
-          {
-            headers: {
-              "Authorization": `Bearer ${token}`
-            }
-          }
-        );
+        const res = await authFetch(`/bundles/${encodeURIComponent(bundleData.id)}/items`);
+        const items = await res.json().catch(() => ([]));
 
-        if (!res.ok) return;
-
-        const items = await res.json();
         if (!Array.isArray(items) || items.length === 0) return;
 
         const box = document.getElementById("bundle-items-box");
