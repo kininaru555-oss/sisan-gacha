@@ -242,24 +242,14 @@ body::after {
   line-height: 1.7;
 }
 
-.uid-display {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-.uid-display .form-input {
-  flex: 1;
-  font-family: var(--font-mono);
-  font-size: 12px;
+.account-info {
+  background: var(--yellow-dim);
+  border: 1px solid rgba(255,214,0,0.2);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 13px;
   color: var(--muted);
-  cursor: default;
-}
-.uid-note {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: rgba(136,136,128,0.5);
-  margin-top: 5px;
-  letter-spacing: 0.04em;
+  margin-bottom: 20px;
 }
 
 .select-wrap {
@@ -512,19 +502,11 @@ body::after {
   <div class="form-card">
     <div class="card-label">▶ ARTICLE DATA</div>
 
-    <!-- User ID -->
-    <div class="form-row">
-      <label class="form-label" for="user_id">
-        USER ID
-        <span class="label-optional">AUTO</span>
-      </label>
-      <div class="uid-display">
-        <input id="user_id" class="form-input" readonly>
-      </div>
-      <div class="uid-note">※ 自動発行されます。変更不要です。</div>
+    <!-- アカウント情報案内（user_id欄の代替） -->
+    <div class="account-info">
+      ログイン中のアカウントとして登録されます。<br>
+      登録内容は後からマイページで確認・編集可能です。
     </div>
-
-    <hr class="divider">
 
     <!-- Title -->
     <div class="form-row">
@@ -537,7 +519,7 @@ body::after {
         class="form-input"
         placeholder="例：月5万円を達成した副業の全手順"
         maxlength="80"
-        oninput="updateCounter('title', 80)"
+        aria-required="true"
       >
       <div class="char-counter" id="title-counter">0 / 80</div>
     </div>
@@ -549,14 +531,14 @@ body::after {
         <span class="label-required">必須</span>
       </label>
       <div class="select-wrap">
-        <select id="category" class="form-select">
-          <option>副業</option>
-          <option>収益化</option>
-          <option>note・情報販売</option>
-          <option>SNS運用</option>
-          <option>マーケティング</option>
-          <option>AI活用</option>
-          <option>その他</option>
+        <select id="category" class="form-select" aria-required="true">
+          <option value="副業">副業</option>
+          <option value="収益化">収益化</option>
+          <option value="note・情報販売">note・情報販売</option>
+          <option value="SNS運用">SNS運用</option>
+          <option value="マーケティング">マーケティング</option>
+          <option value="AI活用">AI活用</option>
+          <option value="その他">その他</option>
         </select>
       </div>
     </div>
@@ -572,7 +554,7 @@ body::after {
         class="form-textarea"
         placeholder="記事の内容、ノウハウ、手順などを入力してください。&#10;&#10;読者が購入・閲覧したいと思えるような情報を書くと、ガチャで選ばれやすくなります。"
         maxlength="10000"
-        oninput="updateCounter('content', 10000)"
+        aria-required="true"
       ></textarea>
       <div class="char-counter" id="content-counter">0 / 10000</div>
     </div>
@@ -617,25 +599,29 @@ body::after {
 <div id="toast"></div>
 
 <script>
-function generateUserId() {
-  return "u_" + Math.random().toString(36).substring(2, 12);
-}
+// API_BASE の統一（index.html と同一）
+const API_BASE =
+  window.APP_CONFIG?.API_BASE ||
+  localStorage.getItem("API_BASE") ||
+  "";
 
-function initUserId() {
-  let uid = localStorage.getItem("user_id");
-  if (!uid) {
-    uid = generateUserId();
-    localStorage.setItem("user_id", uid);
-  }
-  document.getElementById("user_id").value = uid;
+/* ─── ユーティリティ ───────────────── */
+function showToast(msg, type = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = `show ${type}`.trim();
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.className = ""; }, 2800);
 }
 
 function updateCounter(id, max) {
-  const len = document.getElementById(id).value.length;
+  const input = document.getElementById(id);
+  const len = input.value.length;
   const el = document.getElementById(id + "-counter");
+
   el.textContent = `${len} / ${max}`;
 
-  if (len >= max) {
+  if (len > max) {
     el.className = "char-counter over";
   } else if (len > max * 0.9) {
     el.className = "char-counter warn";
@@ -644,24 +630,24 @@ function updateCounter(id, max) {
   }
 }
 
-function showToast(msg, type = "") {
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.className = "show" + (type ? " " + type : "");
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => { t.className = ""; }, 2800);
-}
-
+/* ─── 投稿処理（JWT + API_BASE対応） ───────────────── */
 async function submitPost() {
-  const user_id  = document.getElementById("user_id").value;
+  const token = localStorage.getItem("access_token");
+  if (!token) {
+    showToast("ログインしてください", "error");
+    setTimeout(() => location.href = "/login.html", 800);
+    return;
+  }
+
   const title    = document.getElementById("title").value.trim();
   const content  = document.getElementById("content").value.trim();
   const category = document.getElementById("category").value;
 
+  // バリデーション
   if (!title) return showToast("タイトルを入力してください", "error");
   if (!content) return showToast("本文を入力してください", "error");
-  if (content.length > 10000) return showToast("本文は10000文字以内で入力してください", "error");
   if (content.length < 200) return showToast("本文は最低200文字以上で入力してください", "error");
+  if (content.length > 10000) return showToast("本文は10000文字以内で入力してください", "error");
 
   const btn = document.getElementById("submitBtn");
   const overlay = document.getElementById("loadingOverlay");
@@ -670,30 +656,60 @@ async function submitPost() {
   overlay.classList.add("show");
 
   try {
-    const res = await fetch("/prompts", {
+    const res = await fetch(`${API_BASE}/prompts`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id, title, content, category })
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        title,
+        content,
+        category
+      })
     });
 
-    overlay.classList.remove("show");
-
-    if (res.ok) {
-      showToast("登録完了！無料ガチャを進呈しました 🎰", "success");
-      setTimeout(() => location.href = "/", 1600);
-    } else {
+    if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      showToast(data.detail || "投稿に失敗しました", "error");
-      btn.disabled = false;
+
+      if (res.status === 401) {
+        localStorage.removeItem("access_token");
+        showToast("セッションが切れました。再度ログインしてください。", "error");
+        setTimeout(() => location.href = "/login.html", 1200);
+        return;
+      }
+
+      throw new Error(data.detail || "投稿に失敗しました");
     }
+
+    showToast("登録完了！無料ガチャを進呈しました 🎰", "success");
+    setTimeout(() => location.href = "/", 1600);
+
   } catch (e) {
+    console.error(e);
+    showToast(e.message || "通信エラーが発生しました", "error");
+  } finally {
     overlay.classList.remove("show");
-    showToast("通信エラーが発生しました", "error");
     btn.disabled = false;
   }
 }
 
-window.onload = initUserId;
+/* ─── イベント設定 ───────────────── */
+window.onload = function () {
+  // 文字カウンター（IME対応強化）
+  const titleInput = document.getElementById("title");
+  const contentInput = document.getElementById("content");
+
+  titleInput.addEventListener("input", () => updateCounter("title", 80));
+  titleInput.addEventListener("compositionend", () => updateCounter("title", 80));
+
+  contentInput.addEventListener("input", () => updateCounter("content", 10000));
+  contentInput.addEventListener("compositionend", () => updateCounter("content", 10000));
+
+  // 初期カウンター表示
+  updateCounter("title", 80);
+  updateCounter("content", 10000);
+};
 </script>
 </body>
-</html>
+        </html>
