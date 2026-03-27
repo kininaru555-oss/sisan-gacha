@@ -40,7 +40,7 @@
         <div class="card-title">アカウント作成</div>
         <div class="card-desc">
           はじめて利用する方はこちら。<br>
-          登録後、そのままログインして利用を開始します。
+          登録後、そのままログインしてすぐに利用を開始できます。
         </div>
 
         <p class="cta-lead">今すぐ始めて、あなたの記事を収益化</p>
@@ -50,7 +50,7 @@
           <input
             id="user_id"
             class="form-input"
-            placeholder="半角英数字・記号"
+            placeholder="英数字・-・_"
             autocomplete="username"
             maxlength="64"
           >
@@ -149,8 +149,17 @@
       const passwordConfirm = document.getElementById("password_confirm").value;
       const btn = document.getElementById("registerBtn");
 
+      if (btn.disabled) {
+        return;
+      }
+
       if (!userId) {
         App.showToast("ユーザーIDを入力してください", "error");
+        return;
+      }
+
+      if (!/^[a-zA-Z0-9_-]+$/.test(userId)) {
+        App.showToast("ユーザーIDは英数字・-・_ のみ使用できます", "error");
         return;
       }
 
@@ -178,10 +187,6 @@
 
       try {
         App.clearClientSession();
-
-        if (typeof App.register !== "function") {
-          throw new Error("App.register が未実装です。app.js 側に register 関数を追加してください。");
-        }
 
         await App.register(userId, password);
         await App.login(userId, password);
