@@ -18,7 +18,9 @@ from fastapi import APIRouter, HTTPException, Request
 from db import db_transaction
 from dependencies import get_current_user_id_dep   # ← dependencies.pyを使用
 from models import GachaRequest
-from utils import ensure_user_row_exists, now_iso
+from datetime import datetime, timezone
+
+from utils import ensure_user_row_exists
 
 router = APIRouter(prefix="/gacha", tags=["gacha"])
 
@@ -140,7 +142,7 @@ def draw_gacha(req: GachaRequest, request: Request):
             cost_type = "paid"
             cost_points = 30
 
-        draw_time = now_iso()
+        draw_time = datetime.now(timezone.utc)
 
         # ── ガチャログ記録 ──
         cur.execute(
