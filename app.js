@@ -9,9 +9,10 @@
     localStorage.getItem("API_BASE") ||
     "";
 
-  const CSRF_STORAGE_KEY = "csrf_token";
+  const CSRF_STORAGE_KEY    = "csrf_token";
   const USER_ID_STORAGE_KEY = "user_id";
-  const CSRF_HEADER_NAME = "X-CSRF-Token";
+  const USER_ROLE_STORAGE_KEY = "user_role";  // role キャッシュ追加
+  const CSRF_HEADER_NAME    = "X-CSRF-Token";
 
   // ─────────────────────────────────────────────
   // 内部ユーティリティ
@@ -85,9 +86,22 @@
     localStorage.setItem(USER_ID_STORAGE_KEY, userId);
   }
 
+  function getUserRole() {
+    return localStorage.getItem(USER_ROLE_STORAGE_KEY) || "";
+  }
+
+  function setUserRole(role) {
+    if (!role) {
+      localStorage.removeItem(USER_ROLE_STORAGE_KEY);
+      return;
+    }
+    localStorage.setItem(USER_ROLE_STORAGE_KEY, role);
+  }
+
   function clearClientSession() {
     localStorage.removeItem(USER_ID_STORAGE_KEY);
     localStorage.removeItem(CSRF_STORAGE_KEY);
+    localStorage.removeItem(USER_ROLE_STORAGE_KEY);
   }
 
   async function fetchCsrf() {
@@ -114,9 +128,9 @@
   }
 
   // ─────────────────────────────────────────────
-  // 共通 fetch
+  // 共通 fetch（401時に1回だけリフレッシュしてリトライ）
   // ─────────────────────────────────────────────
-  async function fetchWithAuth(path, options = {}) {
+  async function fetchWithAuth(path, options = {}, _isRetry = false) {
     const method = (options.method || "GET").toUpperCase();
     const headers = new Headers(options.headers || {});
     const hasBody = options.body !== undefined && options.body !== null;
@@ -135,12 +149,26 @@
       }
     }
 
-    return fetch(normalizeApiPath(path), {
+    const res = await fetch(normalizeApiPath(path), {
       ...options,
       method,
       headers,
       credentials: "include",
     });
+
+    // 401 かつ初回のみ：セッションリフレッシュを試みてリトライ
+    if (res.status === 401 && !_isRetry) {
+      try {
+        await refreshSession();
+        return fetchWithAuth(path, options, true);
+      } catch (_) {
+        // リフレッシュも失敗 → セッション切れ確定、localStorageをクリア
+        clearClientSession();
+        return res;
+      }
+    }
+
+    return res;
   }
 
   async function requestJson(path, options = {}) {
@@ -190,6 +218,7 @@
     });
 
     setUserId(data.user_id || userId);
+    if (data.role) setUserRole(data.role);
     await fetchCsrf();
     return data;
   }
@@ -210,9 +239,8 @@
       method: "POST",
     });
 
-    if (data.user_id) {
-      setUserId(data.user_id);
-    }
+    if (data.user_id) setUserId(data.user_id);
+    if (data.role)    setUserRole(data.role);
     await fetchCsrf();
     return data;
   }
@@ -231,16 +259,22 @@
   async function getAuthStatus() {
     try {
       const csrfToken = await fetchCsrf();
+      // CSRFトークンが空 = Cookieにセッションなし = 未ログイン
+      const isLoggedIn = Boolean(csrfToken);
+      if (!isLoggedIn) clearClientSession();
       return {
-        is_logged_in: Boolean(csrfToken),
+        is_logged_in: isLoggedIn,
         csrf_token: csrfToken,
         user_id: getUserId(),
+        role: getUserRole(),
       };
     } catch (_) {
+      clearClientSession();
       return {
         is_logged_in: false,
         csrf_token: "",
         user_id: "",
+        role: "",
       };
     }
   }
@@ -248,9 +282,32 @@
   // ─────────────────────────────────────────────
   // ページ補助
   // ─────────────────────────────────────────────
-  function requireLogin(redirectTo = "/login.html") {
-    const userId = getUserId();
-    if (!userId) {
+
+  /**
+   * 未ログインならリダイレクト。
+   * localStorageの user_id だけでなく、CSRFトークンの存在も確認する。
+   * 非同期版：await requireLogin() を使うと確実。
+   */
+  async function requireLogin(redirectTo = "/login.html") {
+    const status = await getAuthStatus();
+    if (!status.is_logged_in) {
+      location.href = redirectTo;
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * 管理者でなければリダイレクト。
+   * role が "admin" でない場合は top へ戻す。
+   */
+  async function requireAdmin(redirectTo = "/index.html") {
+    const status = await getAuthStatus();
+    if (!status.is_logged_in) {
+      location.href = "/login.html";
+      return false;
+    }
+    if (getUserRole() !== "admin") {
       location.href = redirectTo;
       return false;
     }
@@ -279,6 +336,8 @@
     // session
     getUserId,
     setUserId,
+    getUserRole,
+    setUserRole,
     getCsrfToken,
     setCsrfToken,
     clearClientSession,
@@ -300,6 +359,7 @@
     showToast,
     handleError,
     requireLogin,
+    requireAdmin,
     go,
   };
 })();
