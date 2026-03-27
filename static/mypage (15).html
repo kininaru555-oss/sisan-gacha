@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>マイページ — 記事自販機ガチャ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg:         #0a0a0f;
+  --surface:    #12121a;
+  --surface2:   #0e0e16;
+  --border:     rgba(255,220,0,0.18);
+  --yellow:     #ffd600;
+  --yellow-dim: rgba(255,214,0,0.08);
+  --amber:      #ff9100;
+  --text:       #e8e8e0;
+  --muted:      #888880;
+  --danger:     #ff4d4d;
+  --success:    #80ffb0;
+  --blue:       #7dd3fc;
+  --font-ja:    'Zen Maru Gothic', sans-serif;
+  --font-mono:  'Share Tech Mono', monospace;
+  --font-dot:   'DotGothic16', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ja);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,214,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,214,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrapper {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 16px 72px;
+  position: relative;
+  z-index: 1;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: fadeUp 0.5s 0.05s ease forwards;
+}
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+.breadcrumb a:hover { color: var(--yellow); }
+.breadcrumb-sep { opacity: 0.4; }
+.breadcrumb-current { color: var(--yellow); }
+
+.page-header {
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.15s ease forwards;
+}
+.page-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--amber);
+  border: 1px solid rgba(255,145,0,0.3);
+  padding: 4px 12px;
+  border-radius: 2px;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+.page-title {
+  font-family: var(--font-dot);
+  font-size: clamp(1.8rem, 6vw, 2.6rem);
+  color: var(--yellow);
+  text-shadow: 0 0 24px rgba(255,214,0,0.25);
+  line-height: 1.2;
+  margin-bottom: 10px;
+}
+.page-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.25s ease forwards;
+}
+@media (max-width: 900px) {
+  .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 520px) {
+  .summary-grid { grid-template-columns: 1fr; }
+}
+
+.summary-card,
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 18px;
+  position: relative;
+  overflow: hidden;
+}
+.summary-card::before,
+.section-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255,214,0,0.4), transparent);
+}
+
+.summary-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.summary-value {
+  font-family: var(--font-dot);
+  font-size: 1.6rem;
+  color: var(--yellow);
+}
+.summary-note {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.section-card {
+  margin-bottom: 16px;
+  opacity: 0;
+  animation: fadeUp 0.6s 0.35s ease forwards;
+}
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--yellow);
+  text-transform: uppercase;
+  margin-bottom: 18px;
+}
+
+.session-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.session-box {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.session-box strong {
+  color: var(--text);
+}
+.session-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.quick-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.button {
+  border: 1px solid rgba(255,220,0,0.18);
+  background: var(--surface2);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: 0.15s ease;
+}
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(255,214,0,0.35);
+}
+.button.primary {
+  background: var(--yellow);
+  color: #0a0a0f;
+  border-color: transparent;
+  font-weight: 700;
+}
+.button.danger {
+  border-color: rgba(255,77,77,0.35);
+  color: #ffb4b4;
+}
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.empty-box {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 18px 8px;
+  border: 1px dashed rgba(255,220,0,0.1);
+  border-radius: 10px;
+}
+
+.prompt-list,
+.bundle-list {
+  display: grid;
+  gap: 14px;
+}
+
+.prompt-card,
+.bundle-card {
+  background: var(--surface2);
+  border: 1px solid rgba(255,220,0,0.12);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.prompt-head,
+.bundle-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.prompt-title,
+.bundle-title {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.prompt-meta,
+.bundle-meta {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.prompt-url,
+.bundle-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--blue);
+  text-decoration: none;
+  word-break: break-all;
+}
+.prompt-url:hover,
+.bundle-link:hover {
+  text-decoration: underline;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+.badge.ok {
+  background: rgba(128,255,176,0.08);
+  border-color: rgba(128,255,176,0.22);
+  color: var(--success);
+}
+.badge.off {
+  background: rgba(255,77,77,0.08);
+  border-color: rgba(255,77,77,0.22);
+  color: #ffb4b4;
+}
+.badge.pending {
+  background: rgba(255,214,0,0.08);
+  border-color: rgba(255,214,0,0.22);
+  color: var(--yellow);
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 10px;
+}
+@media (max-width: 860px) {
+  .action-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 520px) {
+  .action-grid { grid-template-columns: 1fr; }
+}
+
+.footer {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255,214,0,0.08);
+  text-align: center;
+}
+.footer-links {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.footer-links a {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border: 1px solid rgba(255,214,0,0.1);
+  border-radius: 3px;
+}
+.footer-links a:hover { color: var(--yellow); border-color: var(--border); }
+.footer-copy {
+  font-size: 10px;
+  color: rgba(136,136,128,0.4);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+}
+
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  opacity: 0;
+  transition: all 0.3s;
+  pointer-events: none;
+  z-index: 250;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.error { border-color: rgba(255,77,77,0.4); color: var(--danger); }
+#toast.success { border-color: rgba(128,255,176,0.4); color: var(--success); }
+
+#loadingOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+#loadingOverlay.show { display: flex; }
+.loading-box { text-align: center; }
+.loading-spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255,214,0,0.15);
+  border-top-color: var(--yellow);
+  border-radius: 50%;
+  margin: 0 auto 14px;
+  animation: spin 0.8s linear infinite;
+}
+.loading-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+
+#editModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  backdrop-filter: blur(3px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 220;
+}
+#editModal.show {
+  display: flex;
+}
+.modal-card {
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  position: relative;
+}
+.modal-title {
+  font-family: var(--font-dot);
+  font-size: 1.4rem;
+  color: var(--yellow);
+  margin-bottom: 8px;
+}
+.modal-desc {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+.form-row {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.form-input,
+.form-textarea,
+.form-select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,220,0,0.12);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+.form-textarea {
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.7;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>
+</head>
+
+<body>
+<div class="wrapper">
+
+  <nav class="breadcrumb">
+    <a href="/">TOP</a>
+    <span class="breadcrumb-sep">/</span>
+    <span class="breadcrumb-current">マイページ</span>
+  </nav>
+
+  <div class="page-header">
+    <div class="page-badge">MY PAGE</div>
+    <h1 class="page-title">マイページ</h1>
+    <p class="page-desc">
+      投稿記事の管理、作者コントロール、収益確認、掲載停止申請をこのページから行えます。
+    </p>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">USER ID</div>
+      <div class="summary-value" id="summary-user">--</div>
+      <div class="summary-note">ログイン中のユーザー</div>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-label">POINTS</div>
+      <div class="summary-value" id="summary-points">--</div>
+      <div class="summary-note">現在の保有ポイント</div>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-label">YEN</div>
+      <div class="summary-value" id="summary-yen">--</div>
+      <div class="summary-note">出金可能残高</div>
+    </div>
+
+    <div class="summary-card">
+      <div class="summary-label">POST COUNT</div>
+      <div class="summary-value" id="summary-post-count">--</div>
+      <div class="summary-note">累計投稿数</div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-title">▶ SESSION</div>
+    <div class="session-row">
+      <div class="session-box" id="session-box">
+        <strong>確認中</strong><br>
+        セッションを確認しています。
+      </div>
+      <div class="session-actions">
+        <button class="button primary" onclick="goLogin()">ログイン</button>
+        <button class="button" onclick="goRegister()">新規登録</button>
+        <button class="button danger" onclick="logout()">ログアウト</button>
+      </div>
+    </div>
+    <div class="quick-links">
+      <button class="button" onclick="goBundles()">福袋一覧へ</button>
+      <button class="button" onclick="goRecruitingBundles()">募集中福袋へ</button>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-title">▶ PURCHASED BUNDLES</div>
+    <div id="bundle-list" class="bundle-list"></div>
+    <div id="bundle-empty" class="empty-box" style="display:none;">
+      購入済み福袋はまだありません。
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-title">▶ AUTHOR CONTROLS</div>
+    <div id="prompt-list" class="prompt-list"></div>
+    <div id="prompt-empty" class="empty-box" style="display:none;">
+      投稿記事がまだありません。
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-links">
+      <a href="/terms.html">利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+      <a href="/tokusho.html">特定商取引法</a>
+    </div>
+    <div class="footer-copy">© 2025 ARTICLE VENDING MACHINE</div>
+  </div>
+</div>
+
+<div id="loadingOverlay">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <div class="loading-label">LOADING…</div>
+  </div>
+</div>
+
+<div id="editModal">
+  <div class="modal-card">
+    <div class="modal-title">記事を編集する</div>
+    <div class="modal-desc">
+      タイトル・本文・カテゴリ・URLを更新できます。
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="editTitle">TITLE</label>
+      <input id="editTitle" class="form-input" maxlength="80">
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="editCategory">CATEGORY</label>
+      <select id="editCategory" class="form-select">
+        <option value="副業">副業</option>
+        <option value="収益化">収益化</option>
+        <option value="note・情報販売">note・情報販売</option>
+        <option value="SNS運用">SNS運用</option>
+        <option value="マーケティング">マーケティング</option>
+        <option value="AI活用">AI活用</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="editUrl">URL</label>
+      <input id="editUrl" class="form-input" maxlength="500" placeholder="https://example.com/article">
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="editContent">CONTENT</label>
+      <textarea id="editContent" class="form-textarea" maxlength="10000"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="button" onclick="closeEditModal()">閉じる</button>
+      <button class="button primary" id="saveEditButton" onclick="savePromptEdit()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+              
+ <script>
+let promptMap = new Map();
+let editingPromptId = null;
+
+/* ─── 共通ユーティリティ ───────────────── */
+
+function setLoading(isLoading) {
+  const overlay = document.getElementById("loadingOverlay");
+  if (isLoading) overlay.classList.add("show");
+  else overlay.classList.remove("show");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function formatNumber(v) {
+  return Number(v || 0).toLocaleString("ja-JP");
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString("ja-JP");
+}
+
+/* ─── ナビゲーション ───────────────── */
+
+function goLogin() { location.href = "/login.html"; }
+function goRegister() { location.href = "/register.html"; }
+function goBundles() { location.href = "/bundles.html"; }
+function goRecruitingBundles() { location.href = "/bundles.html?filter=recruiting"; }
+
+async function logout() {
+  try {
+    await App.requestJson("/auth/logout", { method: "POST" });
+  } catch (_) {}
+
+  App.clearClientSession();
+  App.showToast("ログアウトしました", "success");
+
+  setTimeout(() => {
+    location.href = "/login.html";
+  }, 700);
+}
+
+/* ─── データ取得 ───────────────── */
+
+async function loadSummary() {
+  const [mypage, earnings] = await Promise.all([
+    App.requestJson("/mypage"),
+    App.requestJson("/mypage/earnings").catch(() => ({}))
+  ]);
+
+  document.getElementById("summary-user").textContent = mypage.user_id || "--";
+  document.getElementById("summary-points").textContent = formatNumber(mypage.points);
+  document.getElementById("summary-yen").textContent = formatNumber(
+    earnings.total_yen ?? mypage.yen ?? 0
+  );
+  document.getElementById("summary-post-count").textContent = formatNumber(mypage.post_count);
+}
+
+async function loadPurchasedBundles() {
+  try {
+    const items = await App.requestJson("/mypage/bundles");
+    renderPurchasedBundles(items);
+  } catch (e) {
+    App.handleError(e, "購入済み福袋一覧の読み込みに失敗しました");
+  }
+}
+
+async function loadPrompts() {
+  try {
+    const items = await App.requestJson("/mypage/prompts");
+    promptMap = new Map(items.map(i => [Number(i.id), i]));
+    renderPromptList(items);
+  } catch (e) {
+    App.handleError(e, "投稿記事一覧の読み込みに失敗しました");
+  }
+}
+
+/* ─── 描画 ───────────────── */
+
+function renderPurchasedBundles(items) {
+  const list = document.getElementById("bundle-list");
+  const empty = document.getElementById("bundle-empty");
+  list.innerHTML = "";
+
+  if (!items?.length) {
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  for (const item of items) {
+    const badgeClass =
+      item.status === "active" ? "ok" :
+      item.status === "recruiting" ? "pending" : "off";
+
+    const badgeText =
+      item.status === "active" ? "販売中" :
+      item.status === "recruiting" ? "募集中" : "販売終了";
+
+    const card = document.createElement("article");
+    card.className = "bundle-card";
+    card.innerHTML = `
+      <div class="bundle-head">
+        <div>
+          <div class="bundle-title">${escapeHtml(item.title || "無題の福袋")}</div>
+          <div class="bundle-meta">
+            ジャンル: ${escapeHtml(item.genre || "その他")}<br>
+            購入日時: ${escapeHtml(formatDate(item.purchased_at)) || "-"}<br>
+            価格: ${formatNumber(item.price_points)} pt
+            ${item.published_at ? `<br>公開日: ${escapeHtml(formatDate(item.published_at))}` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div class="badge-row">
+        <span class="badge ${badgeClass}">● ${badgeText}</span>
+        <span class="badge ok">● 購入済み</span>
+      </div>
+
+      <div class="bundle-meta">
+        ${escapeHtml(item.description || "説明はまだありません。")}
+      </div>
+
+      <a class="bundle-link" href="/bundle-detail.html?id=${encodeURIComponent(item.bundle_id)}&purchased=1">
+        福袋詳細を見る
+      </a>
+    `;
+    list.appendChild(card);
+  }
+}
+
+function renderPromptList(items) {
+  const list = document.getElementById("prompt-list");
+  const empty = document.getElementById("prompt-empty");
+  list.innerHTML = "";
+
+  if (!items?.length) {
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  for (const item of items) {
+    const resaleOn = !!item.resale_offer_enabled;
+    const bundleOn = !!item.bundle_entry_enabled;
+    const pending = !!item.has_pending_stop_request;
+
+    const article = document.createElement("article");
+    article.className = "prompt-card";
+    article.innerHTML = `
+      <div class="prompt-head">
+        <div>
+          <div class="prompt-title">${escapeHtml(item.title || "無題の記事")}</div>
+          <div class="prompt-meta">
+            カテゴリ: ${escapeHtml(item.category || "未設定")}<br>
+            投稿日: ${escapeHtml(formatDate(item.created_at)) || "-"}
+            ${item.url ? `<br><a class="prompt-url" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a>` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div class="badge-row">
+        <span class="badge ${resaleOn ? "ok" : "off"}">
+          ${resaleOn ? "●" : "■"} ${resaleOn ? "再販売許可中" : "再販売停止中"}
+        </span>
+        <span class="badge ${bundleOn ? "ok" : "off"}">
+          ${bundleOn ? "●" : "■"} ${bundleOn ? "福袋利用許可中" : "福袋利用停止中"}
+        </span>
+        <span class="badge ${pending ? "pending" : "ok"}">
+          ${pending ? "● 掲載停止申請受付中" : "● 掲載停止申請可能"}
+        </span>
+      </div>
+
+      <div class="action-grid" data-id="${item.id}">
+        <button class="button" data-action="edit">編集する</button>
+        <button class="button" data-action="resale" data-enabled="${resaleOn ? "0" : "1"}">
+          ${resaleOn ? "再販売をOFFにする" : "再販売をONにする"}
+        </button>
+        <button class="button" data-action="bundle" data-enabled="${bundleOn ? "0" : "1"}">
+          ${bundleOn ? "福袋利用をOFFにする" : "福袋利用をONにする"}
+        </button>
+        <button class="button danger" data-action="stop" ${pending ? "disabled" : ""}>
+          ${pending ? "申請受付中" : "掲載停止申請"}
+        </button>
+      </div>
+    `;
+
+    list.appendChild(article);
+  }
+
+  bindPromptActions();
+}
+
+/* ─── イベント委譲 ───────────────── */
+
+function bindPromptActions() {
+  document.querySelectorAll("[data-action='edit']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = Number(btn.closest(".action-grid").dataset.id);
+      openEditModal(id);
+    });
+  });
+
+  document.querySelectorAll("[data-action='resale']").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = Number(btn.closest(".action-grid").dataset.id);
+      const enabled = btn.dataset.enabled === "1";
+      await toggleResale(id, enabled);
+    });
+  });
+
+  document.querySelectorAll("[data-action='bundle']").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = Number(btn.closest(".action-grid").dataset.id);
+      const enabled = btn.dataset.enabled === "1";
+      await toggleBundle(id, enabled);
+    });
+  });
+
+  document.querySelectorAll("[data-action='stop']").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = Number(btn.closest(".action-grid").dataset.id);
+      await requestStop(id);
+    });
+  });
+}
+
+/* ─── 編集モーダル ───────────────── */
+
+function openEditModal(id) {
+  const item = promptMap.get(Number(id));
+  if (!item) {
+    App.handleError(new Error("記事が見つかりません"), "記事情報の取得に失敗しました");
+    return;
+  }
+
+  editingPromptId = Number(id);
+
+  document.getElementById("editTitle").value = item.title || "";
+  document.getElementById("editCategory").value = item.category || "その他";
+  document.getElementById("editUrl").value = item.url || "";
+
+  // 注意:
+  // /mypage/prompts の返却に content が無い場合は空になる。
+  // バックエンドが content を返すようになれば自動で入る。
+  document.getElementById("editContent").value = item.content || "";
+
+  document.getElementById("editModal").classList.add("show");
+}
+
+function closeEditModal() {
+  editingPromptId = null;
+  document.getElementById("editModal").classList.remove("show");
+}
+
+async function savePromptEdit() {
+  if (!editingPromptId) return;
+
+  const title = document.getElementById("editTitle").value.trim();
+  const category = document.getElementById("editCategory").value;
+  const url = document.getElementById("editUrl").value.trim();
+  const content = document.getElementById("editContent").value.trim();
+
+  if (!title) return App.showToast("タイトルを入力してください", "error");
+  if (!content) return App.showToast("本文を入力してください", "error");
+  if (content.length < 200) return App.showToast("本文は最低200文字以上で入力してください", "error");
+  if (content.length > 10000) return App.showToast("本文は10000文字以内で入力してください", "error");
+
+  try {
+    await App.requestJson(`/mypage/prompts/${editingPromptId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title,
+        content,
+        category,
+        url: url || null
+      })
+    });
+
+    App.showToast("記事を更新しました", "success");
+    closeEditModal();
+    await loadPrompts();
+  } catch (e) {
+    App.handleError(e, "記事の更新に失敗しました");
+  }
+}
+
+/* ─── アクション ───────────────── */
+
+async function toggleResale(id, enabled) {
+  setLoading(true);
+  try {
+    await App.requestJson(`/mypage/prompts/${id}/resale-toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled })
+    });
+
+    App.showToast(enabled ? "再販売を許可しました" : "再販売を停止しました", "success");
+    await loadPrompts();
+  } catch (e) {
+    App.handleError(e, "再販売設定の更新に失敗しました");
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function toggleBundle(id, enabled) {
+  setLoading(true);
+  try {
+    await App.requestJson(`/mypage/prompts/${id}/bundle-toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled })
+    });
+
+    App.showToast(enabled ? "福袋利用を許可しました" : "福袋利用を停止しました", "success");
+    await loadPrompts();
+  } catch (e) {
+    App.handleError(e, "福袋利用設定の更新に失敗しました");
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function requestStop(id) {
+  const reason = prompt("掲載停止申請の理由を入力してください（任意）", "");
+  if (reason === null) return;
+
+  setLoading(true);
+  try {
+    await App.requestJson(`/mypage/prompts/${id}/stop-request`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason.trim() })
+    });
+
+    App.showToast("掲載停止申請を送信しました", "success");
+    await loadPrompts();
+  } catch (e) {
+    App.handleError(e, "掲載停止申請に失敗しました");
+  } finally {
+    setLoading(false);
+  }
+}
+
+/* ─── 初期化 ───────────────── */
+
+async function initPage() {
+  setLoading(true);
+
+  try {
+    await App.fetchCsrf();
+    await Promise.all([
+      loadSummary(),
+      loadPurchasedBundles(),
+      loadPrompts()
+    ]);
+  } catch (e) {
+    App.handleError(e, "マイページの初期化に失敗しました");
+  } finally {
+    setLoading(false);
+  }
+}
+
+/* ─── キーボード ───────────────── */
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeEditModal();
+});
+
+window.onload = initPage;
+</script>
+</body>
+</html>
