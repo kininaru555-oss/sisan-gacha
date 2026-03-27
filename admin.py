@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 
 from db import db_transaction
 from models import (
     AddBundleItemRequest,
+    CloseBundleRequest,
     CreateBundleRequest,
     DistributeBundleRequest,
     ProcessPromptStopRequest,
@@ -13,6 +16,7 @@ from models import (
 )
 from utils import get_current_admin_user_id
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -120,6 +124,26 @@ def publish_bundle(req: PublishBundleRequest, request: Request):
         return {"status": "published"}
 
 
+@router.post("/admin/bundles/close")
+def close_bundle(req: CloseBundleRequest, request: Request):
+    """販売中の福袋を締め切る（active → closed）"""
+    with db_transaction() as (conn, cur):
+        get_current_admin_user_id(conn, request, require_csrf=True)
+
+        cur.execute("SELECT id, status FROM bundles WHERE id = %s FOR UPDATE", (req.bundle_id,))
+        bundle = cur.fetchone()
+        if not bundle:
+            raise HTTPException(status_code=404, detail="福袋が見つかりません")
+        if bundle["status"] != "active":
+            raise HTTPException(status_code=400, detail="販売中の福袋のみ締め切りできます")
+
+        cur.execute(
+            "UPDATE bundles SET status = 'closed' WHERE id = %s",
+            (req.bundle_id,),
+        )
+        return {"status": "closed", "bundle_id": req.bundle_id}
+
+
 @router.post("/admin/bundles/distribute")
 def distribute_bundle(req: DistributeBundleRequest, request: Request):
     with db_transaction() as (conn, cur):
@@ -129,7 +153,10 @@ def distribute_bundle(req: DistributeBundleRequest, request: Request):
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="福袋が見つかりません")
 
-        cur.execute("SELECT COALESCE(SUM(price_points), 0) AS total_points FROM bundle_purchases WHERE bundle_id = %s", (req.bundle_id,))
+        cur.execute(
+            "SELECT COALESCE(SUM(price_points), 0) AS total_points FROM bundle_purchases WHERE bundle_id = %s",
+            (req.bundle_id,),
+        )
         total = cur.fetchone()["total_points"]
         if total <= 0:
             return {"status": "no_sales"}
@@ -151,7 +178,11 @@ def distribute_bundle(req: DistributeBundleRequest, request: Request):
         entry_unit_yen = int((total * 0.5) / total_items)
         creator_unit_yen = int((total * 0.1) / total_items)
 
-        grouped: dict[tuple[str, str], dict[str, int | str]] = {}
+        # 端数（切り捨て分）を後で先頭グループに加算して消失を防ぐ
+        entry_remainder = int(total * 0.5) - entry_unit_yen * total_items
+        creator_remainder = int(total * 0.1) - creator_unit_yen * total_items
+
+        grouped: dict[tuple[str, str], dict] = {}
         for row in items:
             entry_user_id = row["entry_user_id"]
             original_creator_user_id = row["original_creator_user_id"] or row["entry_user_id"]
@@ -166,6 +197,11 @@ def distribute_bundle(req: DistributeBundleRequest, request: Request):
                 }
             grouped[key]["entry_yen"] += entry_unit_yen
             grouped[key]["creator_yen"] += creator_unit_yen
+
+        # 先頭グループに端数を加算
+        first_key = next(iter(grouped))
+        grouped[first_key]["entry_yen"] += entry_remainder
+        grouped[first_key]["creator_yen"] += creator_remainder
 
         for row in grouped.values():
             cur.execute(
@@ -193,6 +229,7 @@ def distribute_bundle(req: DistributeBundleRequest, request: Request):
                 ),
             )
 
+            # INSERT がスキップされた場合はウォレット加算しない（二重加算防止）
             if cur.rowcount > 0:
                 cur.execute(
                     """
@@ -211,6 +248,15 @@ def distribute_bundle(req: DistributeBundleRequest, request: Request):
                     DO UPDATE SET yen = creator_wallets.yen + %s
                     """,
                     (row["original_creator_user_id"], row["creator_yen"], row["creator_yen"]),
+                )
+                logger.info(
+                    "distribute: bundle_id=%d entry_user=%s entry_yen=%d creator_user=%s creator_yen=%d round=%d",
+                    req.bundle_id,
+                    row["entry_user_id"],
+                    row["entry_yen"],
+                    row["original_creator_user_id"],
+                    row["creator_yen"],
+                    req.distribution_round,
                 )
 
         return {"status": "distributed"}
@@ -302,10 +348,41 @@ def admin_process_withdraw_request(request_id: int, req: ProcessWithdrawRequest,
     with db_transaction() as (conn, cur):
         get_current_admin_user_id(conn, request, require_csrf=True)
 
-        cur.execute("SELECT id, status FROM withdrawal_requests WHERE id = %s FOR UPDATE", (request_id,))
+        cur.execute(
+            "SELECT id, user_id, amount_yen, status FROM withdrawal_requests WHERE id = %s FOR UPDATE",
+            (request_id,),
+        )
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="出金申請が見つかりません")
+
+        # approved 時：ウォレット残高チェック＆残高を減算してロック
+        if req.status == "approved" and row["status"] == "pending":
+            amount_yen = row["amount_yen"]
+            user_id = row["user_id"]
+
+            cur.execute(
+                "SELECT yen FROM creator_wallets WHERE user_id = %s FOR UPDATE",
+                (user_id,),
+            )
+            wallet = cur.fetchone()
+            current_yen = wallet["yen"] if wallet else 0
+
+            if current_yen < amount_yen:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"ウォレット残高不足です（残高: {current_yen}円 / 申請額: {amount_yen}円）",
+                )
+
+            # 残高を減算（承認時点でロック扱い）
+            cur.execute(
+                "UPDATE creator_wallets SET yen = yen - %s WHERE user_id = %s",
+                (amount_yen, user_id),
+            )
+            logger.info(
+                "withdraw approved: request_id=%d user_id=%s amount_yen=%d",
+                request_id, user_id, amount_yen,
+            )
 
         cur.execute(
             """
