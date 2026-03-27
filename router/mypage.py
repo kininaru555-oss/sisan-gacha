@@ -4,7 +4,7 @@ mypage.py — マイページAPI（収益・投稿管理・出金フロー）
 仕様書準拠：
 - 自分のデータのみアクセス可能（所有者チェック）
 - 書き込み系はCSRF必須
-- 出金コードは1分間に1回制限
+- 出金コードは1分間に1回制限・10分有効
 - 投稿停止申請の二重防止
 """
 
@@ -445,9 +445,12 @@ def create_withdraw_request(req: CreateWithdrawalRequest, request: Request):
         )
         wallet = cur.fetchone()
         if not wallet or wallet["yen"] < req.amount_yen:
-            raise HTTPException(status_code=400, detail="残高が不足しています")
+            raise HTTPException(
+                status_code=400,
+                detail=f"残高が不足しています（残高: {wallet['yen'] if wallet else 0}円）"
+            )
 
-        # 出金コード検証（※モデルに withdraw_code を追加する必要があります）
+        # 出金コード検証
         cur.execute(
             """
             SELECT id, used, expires_at
@@ -457,7 +460,7 @@ def create_withdraw_request(req: CreateWithdrawalRequest, request: Request):
             LIMIT 1
             FOR UPDATE
             """,
-            (user_id, req.withdraw_code),   # ← ここでエラーになる可能性大
+            (user_id, req.withdraw_code),
         )
         code_row = cur.fetchone()
 
