@@ -320,6 +320,24 @@ def init_db():
             """
         )
 
+        # payments.status の CHECK 制約（DROP & ADD で値追加に対応）
+        cur.execute(
+            """
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'chk_payments_status'
+                ) THEN
+                    ALTER TABLE payments DROP CONSTRAINT chk_payments_status;
+                END IF;
+                ALTER TABLE payments
+                ADD CONSTRAINT chk_payments_status
+                CHECK (status IN ('pending', 'paid', 'expired', 'refunded'));
+            END $$;
+            """
+        )
+
         cur.execute(
             """
             DO $$
