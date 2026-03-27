@@ -150,6 +150,9 @@ def init_db():
             """
         )
 
+        # =========================
+        # 🔥 修正対象：payments
+        # =========================
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS payments (
@@ -161,10 +164,18 @@ def init_db():
                 points_to_add INTEGER NOT NULL,
                 amount_jpy INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT 'pending',
-                created_at TEXT NOT NULL,
-                completed_at TEXT
+                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                completed_at TIMESTAMP NULL
             )
             """
+        )
+
+        # 🔧 既存環境マイグレーション
+        cur.execute(
+            "ALTER TABLE payments ALTER COLUMN created_at TYPE TIMESTAMP USING created_at::TIMESTAMP"
+        )
+        cur.execute(
+            "ALTER TABLE payments ALTER COLUMN completed_at TYPE TIMESTAMP USING completed_at::TIMESTAMP"
         )
 
         cur.execute(
@@ -233,159 +244,7 @@ def init_db():
                 original_creator_user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
                 sales_yen INTEGER NOT NULL,
                 entry_yen INTEGER NOT NULL,
-                creator_yen INTEGER NOT NULL,
-                distribution_round INTEGER NOT NULL DEFAULT 1,
-                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                UNIQUE (bundle_id, entry_user_id, original_creator_user_id, distribution_round)
+                creator_yen INTEGER NOT NULL
             )
             """
-        )
-
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS prompt_stop_requests (
-                id SERIAL PRIMARY KEY,
-                prompt_id INTEGER NOT NULL REFERENCES prompts(id) ON DELETE CASCADE,
-                user_id TEXT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-                reason TEXT,
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                processed_at TIMESTAMP NULL
-            )
-            """
-        )
-
-        cur.execute(
-            """
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint
-                    WHERE conname = 'chk_prompts_review_status'
-                ) THEN
-                    ALTER TABLE prompts
-                    ADD CONSTRAINT chk_prompts_review_status
-                    CHECK (review_status IN ('pending_review', 'accepted', 'rejected'));
-                END IF;
-            END $$;
-            """
-        )
-
-        cur.execute(
-            """
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM pg_constraint
-                    WHERE conname = 'chk_bundles_status'
-                ) THEN
-                    ALTER TABLE bundles DROP CONSTRAINT chk_bundles_status;
-                END IF;
-                ALTER TABLE bundles
-                ADD CONSTRAINT chk_bundles_status
-                CHECK (status IN ('recruiting', 'active', 'closed'));
-            END $$;
-            """
-        )
-
-        cur.execute(
-            """
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint
-                    WHERE conname = 'chk_withdrawal_requests_status'
-                ) THEN
-                    ALTER TABLE withdrawal_requests
-                    ADD CONSTRAINT chk_withdrawal_requests_status
-                    CHECK (status IN ('pending', 'approved', 'paid', 'rejected'));
-                END IF;
-            END $$;
-            """
-        )
-
-        cur.execute(
-            """
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint
-                    WHERE conname = 'chk_withdrawal_requests_method'
-                ) THEN
-                    ALTER TABLE withdrawal_requests
-                    ADD CONSTRAINT chk_withdrawal_requests_method
-                    CHECK (method IN ('paypay', 'amazon_gift'));
-                END IF;
-            END $$;
-            """
-        )
-
-        # payments.status の CHECK 制約（DROP & ADD で値追加に対応）
-        cur.execute(
-            """
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM pg_constraint
-                    WHERE conname = 'chk_payments_status'
-                ) THEN
-                    ALTER TABLE payments DROP CONSTRAINT chk_payments_status;
-                END IF;
-                ALTER TABLE payments
-                ADD CONSTRAINT chk_payments_status
-                CHECK (status IN ('pending', 'paid', 'expired', 'refunded'));
-            END $$;
-            """
-        )
-
-        cur.execute(
-            """
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint
-                    WHERE conname = 'chk_prompt_stop_requests_status'
-                ) THEN
-                    ALTER TABLE prompt_stop_requests
-                    ADD CONSTRAINT chk_prompt_stop_requests_status
-                    CHECK (status IN ('pending', 'approved', 'rejected'));
-                END IF;
-            END $$;
-            """
-        )
-
-        index_statements = [
-            "CREATE INDEX IF NOT EXISTS ix_users_role ON users(role)",
-            "CREATE INDEX IF NOT EXISTS ix_users_is_active ON users(is_active)",
-            "CREATE INDEX IF NOT EXISTS ix_user_refresh_tokens_user_id ON user_refresh_tokens(user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_user_refresh_tokens_expires_at ON user_refresh_tokens(expires_at)",
-            "CREATE INDEX IF NOT EXISTS ix_user_refresh_tokens_revoked_at ON user_refresh_tokens(revoked_at)",
-            "CREATE INDEX IF NOT EXISTS ix_prompts_user_id ON prompts(user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_prompts_category ON prompts(category)",
-            "CREATE INDEX IF NOT EXISTS ix_prompts_created_at ON prompts(created_at)",
-            "CREATE INDEX IF NOT EXISTS ix_prompts_review_status ON prompts(review_status)",
-            "CREATE INDEX IF NOT EXISTS ix_prompts_is_visible ON prompts(is_visible)",
-            "CREATE INDEX IF NOT EXISTS ix_prompts_bundle_entry_enabled ON prompts(bundle_entry_enabled)",
-            "CREATE INDEX IF NOT EXISTS ix_prompts_resale_offer_enabled ON prompts(resale_offer_enabled)",
-            "CREATE INDEX IF NOT EXISTS ix_gacha_logs_user_id ON gacha_logs(user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_gacha_logs_prompt_id ON gacha_logs(prompt_id)",
-            "CREATE INDEX IF NOT EXISTS ix_payments_user_id ON payments(user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_payments_status ON payments(status)",
-            "CREATE INDEX IF NOT EXISTS ix_withdraw_codes_user_id ON withdraw_codes(user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_withdraw_codes_code ON withdraw_codes(code)",
-            "CREATE INDEX IF NOT EXISTS ix_withdrawal_requests_user_id ON withdrawal_requests(user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_withdrawal_requests_status ON withdrawal_requests(status)",
-            "CREATE INDEX IF NOT EXISTS ix_bundles_status ON bundles(status)",
-            "CREATE INDEX IF NOT EXISTS ix_bundle_items_bundle_id ON bundle_items(bundle_id)",
-            "CREATE INDEX IF NOT EXISTS ix_bundle_items_prompt_id ON bundle_items(prompt_id)",
-            "CREATE INDEX IF NOT EXISTS ix_bundle_items_entry_user_id ON bundle_items(entry_user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_bundle_items_original_creator_user_id ON bundle_items(original_creator_user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_bundle_reward_distributions_bundle_id ON bundle_reward_distributions(bundle_id)",
-            "CREATE INDEX IF NOT EXISTS ix_bundle_reward_distributions_entry_user_id ON bundle_reward_distributions(entry_user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_bundle_reward_distributions_original_creator_user_id ON bundle_reward_distributions(original_creator_user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_prompt_stop_requests_prompt_id ON prompt_stop_requests(prompt_id)",
-            "CREATE INDEX IF NOT EXISTS ix_prompt_stop_requests_user_id ON prompt_stop_requests(user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_prompt_stop_requests_status ON prompt_stop_requests(status)",
-        ]
-        for stmt in index_statements:
-            cur.execute(stmt)
+)
