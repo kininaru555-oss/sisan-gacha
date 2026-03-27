@@ -648,23 +648,14 @@ body::after {
 
 <div id="toast"></div>
 
+              
+    <script src="/js/app.js"></script>
 <script>
-const API_BASE =
-  window.APP_CONFIG?.API_BASE ||
-  localStorage.getItem("API_BASE") ||
-  "";
 
 let promptMap = new Map();
 let editingPromptId = null;
 
-/* ─── ユーティリティ ───────────────── */
-function showToast(msg, type = "") {
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.className = "show" + (type ? " " + type : "");
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => { t.className = ""; }, 2800);
-}
+/* ─── 共通ユーティリティ ───────────────── */
 
 function setLoading(isLoading) {
   const overlay = document.getElementById("loadingOverlay");
@@ -692,226 +683,83 @@ function formatDate(value) {
   return d.toLocaleString("ja-JP");
 }
 
-function getUserId() {
-  return localStorage.getItem("user_id") || "";
-}
+/* ─── ナビゲーション ───────────────── */
 
-function getCsrfToken() {
-  return localStorage.getItem("csrf_token") || "";
-}
-
-function setUserId(userId) {
-  if (userId) localStorage.setItem("user_id", userId);
-}
-
-function clearClientSession() {
-  localStorage.removeItem("user_id");
-  localStorage.removeItem("csrf_token");
-}
-
-/* ─── 認証関連 ───────────────── */
-function updateSessionBox(isLoggedIn = false, userId = "") {
-  const sessionBox = document.getElementById("session-box");
-
-  if (!isLoggedIn) {
-    sessionBox.innerHTML = "<strong>未ログイン</strong><br>ログインしてください。";
-    document.getElementById("summary-user").textContent = "--";
-    return;
-  }
-
-  sessionBox.innerHTML = `
-    <strong>ログイン中</strong><br>
-    user_id: ${escapeHtml(userId || "取得済み")}<br>
-    Cookie Session: 有効
-  `;
-  document.getElementById("summary-user").textContent = userId || "--";
-}
-
-function goLogin() {
-  location.href = "/login.html";
-}
-
-function goRegister() {
-  location.href = "/register.html";
-}
-
-function goBundles() {
-  location.href = "/bundles.html";
-}
-
-function goRecruitingBundles() {
-  location.href = "/bundles.html?filter=recruiting";
-}
+function goLogin() { location.href = "/login.html"; }
+function goRegister() { location.href = "/register.html"; }
+function goBundles() { location.href = "/bundles.html"; }
+function goRecruitingBundles() { location.href = "/bundles.html?filter=recruiting"; }
 
 async function logout() {
   try {
-    let csrf = getCsrfToken();
-    if (!csrf) csrf = await fetchCsrf();
-
-    await fetch(`${API_BASE}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-      headers: csrf ? { "X-CSRF-Token": csrf } : {}
-    });
+    await App.fetchWithAuth("/auth/logout", { method: "POST" });
   } catch (_) {}
 
-  clearClientSession();
-  showToast("ログアウトしました", "success");
-  updateSessionBox(false);
-  resetSummary();
-  document.getElementById("prompt-list").innerHTML = "";
-  document.getElementById("prompt-empty").style.display = "block";
-  document.getElementById("bundle-list").innerHTML = "";
-  document.getElementById("bundle-empty").style.display = "block";
+  App.clearClientSession();
+  App.showToast("ログアウトしました", "success");
 
-  setTimeout(() => {
-    location.href = "/login.html";
-  }, 700);
+  setTimeout(() => location.href = "/login.html", 700);
 }
 
-function resetSummary() {
-  document.getElementById("summary-user").textContent = "--";
-  document.getElementById("summary-points").textContent = "--";
-  document.getElementById("summary-yen").textContent = "--";
-  document.getElementById("summary-post-count").textContent = "--";
-}
+/* ─── データ取得 ───────────────── */
 
-/* ─── CSRF ───────────────── */
-async function fetchCsrf() {
-  const res = await fetch(`${API_BASE}/auth/csrf`, {
-    method: "GET",
-    credentials: "include"
-  });
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data.detail || "CSRFトークンの取得に失敗しました");
-  }
-
-  const csrfToken = data.csrf_token || "";
-  if (csrfToken) {
-    localStorage.setItem("csrf_token", csrfToken);
-  }
-  return csrfToken;
-}
-
-/* ─── API呼び出し（Cookie + CSRF + Refresh対応） ───────────────── */
-async function authFetch(path, options = {}) {
-  const method = (options.method || "GET").toUpperCase();
-  let csrfToken = getCsrfToken();
-
-  if (!csrfToken) {
-    try {
-      csrfToken = await fetchCsrf();
-    } catch (_) {}
-  }
-
-  const headers = { ...(options.headers || {}) };
-
-  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  if (!["GET", "HEAD"].includes(method) && csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken;
-  }
-
-  let res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    method,
-    credentials: "include",
-    headers
-  });
-
-  if (res.status === 401 && path !== "/auth/refresh") {
-    const refreshHeaders = {};
-    const refreshCsrf = getCsrfToken() || csrfToken;
-    if (refreshCsrf) {
-      refreshHeaders["X-CSRF-Token"] = refreshCsrf;
-    }
-
-    const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
-      method: "POST",
-      credentials: "include",
-      headers: refreshHeaders
-    });
-
-    if (refreshRes.ok) {
-      try {
-        csrfToken = await fetchCsrf();
-      } catch (_) {}
-
-      const retryHeaders = { ...(options.headers || {}) };
-      if (!(options.body instanceof FormData) && !retryHeaders["Content-Type"]) {
-        retryHeaders["Content-Type"] = "application/json";
-      }
-      if (!["GET", "HEAD"].includes(method) && csrfToken) {
-        retryHeaders["X-CSRF-Token"] = csrfToken;
-      }
-
-      res = await fetch(`${API_BASE}${path}`, {
-        ...options,
-        method,
-        credentials: "include",
-        headers: retryHeaders
-      });
-    }
-  }
-
-  if (res.status === 401) {
-    clearClientSession();
-    showToast("セッションが切れました。再度ログインしてください。", "error");
-    setTimeout(() => {
-      location.href = "/login.html";
-    }, 900);
-    throw new Error("セッション期限切れ");
-  }
-
-  return res;
-}
-
-/* ─── データ読み込み ───────────────── */
 async function loadSummary() {
-  const [mypageRes, earningsRes] = await Promise.all([
-    authFetch("/mypage"),
-    authFetch("/mypage/earnings")
-  ]);
+  try {
+    const [mypageRes, earningsRes] = await Promise.all([
+      App.fetchWithAuth("/mypage"),
+      App.fetchWithAuth("/mypage/earnings")
+    ]);
 
-  if (!mypageRes.ok) {
-    const data = await mypageRes.json().catch(() => ({}));
-    throw new Error(data.detail || "マイページ情報の取得に失敗しました");
+    if (!mypageRes.ok) throw new Error("マイページ情報の取得に失敗しました");
+
+    const mypage = await mypageRes.json();
+    const earnings = earningsRes.ok ? await earningsRes.json() : {};
+
+    document.getElementById("summary-user").textContent = mypage.user_id || "--";
+    document.getElementById("summary-points").textContent = formatNumber(mypage.points);
+    document.getElementById("summary-yen").textContent = formatNumber(
+      earnings.total_yen ?? mypage.yen ?? 0
+    );
+    document.getElementById("summary-post-count").textContent = formatNumber(mypage.post_count);
+  } catch (e) {
+    App.handleError(e, "マイページ情報の読み込みに失敗しました");
+    throw e;
   }
-
-  const mypage = await mypageRes.json();
-  const earnings = earningsRes.ok ? await earningsRes.json().catch(() => ({})) : {};
-
-  setUserId(mypage.user_id || "");
-  updateSessionBox(true, mypage.user_id || "");
-
-  document.getElementById("summary-user").textContent = mypage.user_id || "--";
-  document.getElementById("summary-points").textContent = formatNumber(mypage.points);
-  document.getElementById("summary-yen").textContent = formatNumber(
-    typeof earnings.total_yen !== "undefined" ? earnings.total_yen : (mypage.yen || 0)
-  );
-  document.getElementById("summary-post-count").textContent = formatNumber(mypage.post_count);
 }
 
 async function loadPurchasedBundles() {
-  const res = await authFetch("/mypage/bundles");
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "購入済み福袋一覧の取得に失敗しました");
+  try {
+    const res = await App.fetchWithAuth("/mypage/bundles");
+    if (!res.ok) throw new Error("購入済み福袋一覧の取得に失敗しました");
+
+    const items = await res.json();
+    renderPurchasedBundles(items);
+  } catch (e) {
+    App.handleError(e, "購入済み福袋一覧の読み込みに失敗しました");
   }
-  const items = await res.json();
-  renderPurchasedBundles(items);
 }
+
+async function loadPrompts() {
+  try {
+    const res = await App.fetchWithAuth("/mypage/prompts");
+    if (!res.ok) throw new Error("投稿記事一覧の取得に失敗しました");
+
+    const items = await res.json();
+    promptMap = new Map(items.map(i => [Number(i.id), i]));
+    renderPromptList(items);
+  } catch (e) {
+    App.handleError(e, "投稿記事一覧の読み込みに失敗しました");
+  }
+}
+
+/* ─── 描画 ───────────────── */
 
 function renderPurchasedBundles(items) {
   const list = document.getElementById("bundle-list");
   const empty = document.getElementById("bundle-empty");
   list.innerHTML = "";
 
-  if (!Array.isArray(items) || items.length === 0) {
+  if (!items?.length) {
     empty.style.display = "block";
     return;
   }
@@ -919,13 +767,8 @@ function renderPurchasedBundles(items) {
   empty.style.display = "none";
 
   for (const item of items) {
-    const badgeClass =
-      item.status === "active" ? "ok" :
-      item.status === "recruiting" ? "pending" : "off";
-
-    const badgeText =
-      item.status === "active" ? "販売中" :
-      item.status === "recruiting" ? "募集中" : "販売終了";
+    const badgeClass = item.status === "active" ? "ok" : item.status === "recruiting" ? "pending" : "off";
+    const badgeText = item.status === "active" ? "販売中" : item.status === "recruiting" ? "募集中" : "販売終了";
 
     const card = document.createElement("article");
     card.className = "bundle-card";
@@ -959,23 +802,12 @@ function renderPurchasedBundles(items) {
   }
 }
 
-async function loadPrompts() {
-  const res = await authFetch("/mypage/prompts");
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.detail || "投稿記事一覧の取得に失敗しました");
-  }
-  const items = await res.json();
-  promptMap = new Map(items.map(item => [Number(item.id), item]));
-  renderPromptList(items);
-}
-
 function renderPromptList(items) {
   const list = document.getElementById("prompt-list");
   const empty = document.getElementById("prompt-empty");
   list.innerHTML = "";
 
-  if (!Array.isArray(items) || items.length === 0) {
+  if (!items?.length) {
     empty.style.display = "block";
     return;
   }
@@ -996,7 +828,7 @@ function renderPromptList(items) {
           <div class="prompt-meta">
             カテゴリ: ${escapeHtml(item.category || "未設定")}<br>
             投稿日: ${escapeHtml(formatDate(item.created_at)) || "-"}
-            ${item.url ? `<br><a class="prompt-url" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a>` : ""}
+            \( {item.url ? `<br><a class="prompt-url" href=" \){escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.url)}</a>` : ""}
           </div>
         </div>
       </div>
@@ -1013,17 +845,15 @@ function renderPromptList(items) {
         </span>
       </div>
 
-      <div class="action-grid">
-        <button class="button" data-action="edit" data-id="${item.id}">
-          編集する
-        </button>
-        <button class="button" data-action="resale" data-id="${item.id}" data-enabled="${resaleOn ? "0" : "1"}">
+      <div class="action-grid" data-id="${item.id}">
+        <button class="button" data-action="edit">編集する</button>
+        <button class="button" data-action="resale" data-enabled="${resaleOn ? "0" : "1"}">
           ${resaleOn ? "再販売をOFFにする" : "再販売をONにする"}
         </button>
-        <button class="button" data-action="bundle" data-id="${item.id}" data-enabled="${bundleOn ? "0" : "1"}">
+        <button class="button" data-action="bundle" data-enabled="${bundleOn ? "0" : "1"}">
           ${bundleOn ? "福袋利用をOFFにする" : "福袋利用をONにする"}
         </button>
-        <button class="button danger" data-action="stop" data-id="${item.id}" ${pending ? "disabled" : ""}>
+        <button class="button danger" data-action="stop" ${pending ? "disabled" : ""}>
           ${pending ? "申請受付中" : "掲載停止申請"}
         </button>
       </div>
@@ -1032,54 +862,61 @@ function renderPromptList(items) {
     list.appendChild(article);
   }
 
-  bindPromptActions();
+  bindPromptActions();   // ← イベント委譲方式（これがポイント）
 }
 
+/* ─── イベント委譲（bindPromptActions） ───────────────── */
 function bindPromptActions() {
+  // 編集
   document.querySelectorAll("[data-action='edit']").forEach(btn => {
     btn.addEventListener("click", () => {
-      const promptId = Number(btn.dataset.id);
-      openEditModal(promptId);
+      const id = Number(btn.closest(".action-grid").dataset.id);
+      openEditModal(id);
     });
   });
 
+  // 再販売トグル
   document.querySelectorAll("[data-action='resale']").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const promptId = Number(btn.dataset.id);
+      const id = Number(btn.closest(".action-grid").dataset.id);
       const enabled = btn.dataset.enabled === "1";
-      await toggleResale(promptId, enabled);
+      await toggleResale(id, enabled);
     });
   });
 
+  // 福袋トグル
   document.querySelectorAll("[data-action='bundle']").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const promptId = Number(btn.dataset.id);
+      const id = Number(btn.closest(".action-grid").dataset.id);
       const enabled = btn.dataset.enabled === "1";
-      await toggleBundle(promptId, enabled);
+      await toggleBundle(id, enabled);
     });
   });
 
+  // 掲載停止申請
   document.querySelectorAll("[data-action='stop']").forEach(btn => {
     btn.addEventListener("click", async () => {
-      const promptId = Number(btn.dataset.id);
-      await requestStop(promptId);
+      const id = Number(btn.closest(".action-grid").dataset.id);
+      await requestStop(id);
     });
   });
 }
 
-/* ─── 編集UI ───────────────── */
-function openEditModal(promptId) {
-  const item = promptMap.get(Number(promptId));
+/* ─── 編集モーダル（カテゴリ・URLも拡張） ───────────────── */
+function openEditModal(id) {
+  const item = promptMap.get(Number(id));
   if (!item) {
-    showToast("記事情報の取得に失敗しました", "error");
+    App.handleError(new Error("記事が見つかりません"), "記事情報の取得に失敗しました");
     return;
   }
 
-  editingPromptId = Number(promptId);
+  editingPromptId = Number(id);
+
   document.getElementById("editTitle").value = item.title || "";
   document.getElementById("editCategory").value = item.category || "その他";
   document.getElementById("editUrl").value = item.url || "";
   document.getElementById("editContent").value = item.content || "";
+
   document.getElementById("editModal").classList.add("show");
 }
 
@@ -1095,28 +932,14 @@ async function savePromptEdit() {
   const category = document.getElementById("editCategory").value;
   const url = document.getElementById("editUrl").value.trim();
   const content = document.getElementById("editContent").value.trim();
-  const saveButton = document.getElementById("saveEditButton");
 
-  if (!title) {
-    showToast("タイトルを入力してください", "error");
-    return;
-  }
-  if (!content) {
-    showToast("本文を入力してください", "error");
-    return;
-  }
-  if (content.length < 200) {
-    showToast("本文は最低200文字以上で入力してください", "error");
-    return;
-  }
-  if (content.length > 10000) {
-    showToast("本文は10000文字以内で入力してください", "error");
-    return;
-  }
+  if (!title) return App.showToast("タイトルを入力してください", "error");
+  if (!content) return App.showToast("本文を入力してください", "error");
+  if (content.length < 200) return App.showToast("本文は最低200文字以上で入力してください", "error");
+  if (content.length > 10000) return App.showToast("本文は10000文字以内で入力してください", "error");
 
-  saveButton.disabled = true;
   try {
-    const res = await authFetch(`/mypage/prompts/${editingPromptId}`, {
+    await App.fetchWithAuth(`/mypage/prompts/${editingPromptId}`, {
       method: "PATCH",
       body: JSON.stringify({
         title,
@@ -1126,113 +949,96 @@ async function savePromptEdit() {
       })
     });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || "記事の更新に失敗しました");
-
-    showToast("記事を更新しました", "success");
+    App.showToast("記事を更新しました", "success");
     closeEditModal();
     await loadPrompts();
   } catch (e) {
-    showToast(e.message || "記事の更新に失敗しました", "error");
-  } finally {
-    saveButton.disabled = false;
+    App.handleError(e, "記事の更新に失敗しました");
   }
 }
 
 /* ─── アクション関数 ───────────────── */
-async function toggleResale(promptId, enabled) {
+
+async function toggleResale(id, enabled) {
   setLoading(true);
   try {
-    const res = await authFetch(`/mypage/prompts/${promptId}/resale-toggle`, {
+    await App.fetchWithAuth(`/mypage/prompts/${id}/resale-toggle`, {
       method: "POST",
       body: JSON.stringify({ enabled })
     });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || "再販売設定の更新に失敗しました");
-
-    showToast(enabled ? "再販売を許可しました" : "再販売を停止しました", "success");
+    App.showToast(enabled ? "再販売を許可しました" : "再販売を停止しました", "success");
     await loadPrompts();
   } catch (e) {
-    showToast(e.message || "再販売設定の更新に失敗しました", "error");
+    App.handleError(e, "再販売設定の更新に失敗しました");
   } finally {
     setLoading(false);
   }
 }
 
-async function toggleBundle(promptId, enabled) {
+async function toggleBundle(id, enabled) {
   setLoading(true);
   try {
-    const res = await authFetch(`/mypage/prompts/${promptId}/bundle-toggle`, {
+    await App.fetchWithAuth(`/mypage/prompts/${id}/bundle-toggle`, {
       method: "POST",
       body: JSON.stringify({ enabled })
     });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || "福袋利用設定の更新に失敗しました");
-
-    showToast(enabled ? "福袋利用を許可しました" : "福袋利用を停止しました", "success");
+    App.showToast(enabled ? "福袋利用を許可しました" : "福袋利用を停止しました", "success");
     await loadPrompts();
   } catch (e) {
-    showToast(e.message || "福袋利用設定の更新に失敗しました", "error");
+    App.handleError(e, "福袋利用設定の更新に失敗しました");
   } finally {
     setLoading(false);
   }
 }
 
-async function requestStop(promptId) {
+async function requestStop(id) {
   const reason = prompt("掲載停止申請の理由を入力してください（任意）", "");
   if (reason === null) return;
 
   setLoading(true);
   try {
-    const res = await authFetch(`/mypage/prompts/${promptId}/stop-request`, {
+    await App.fetchWithAuth(`/mypage/prompts/${id}/stop-request`, {
       method: "POST",
       body: JSON.stringify({ reason: reason.trim() })
     });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || "掲載停止申請に失敗しました");
-
-    showToast("掲載停止申請を送信しました", "success");
+    App.showToast("掲載停止申請を送信しました", "success");
     await loadPrompts();
   } catch (e) {
-    showToast(e.message || "掲載停止申請に失敗しました", "error");
+    App.handleError(e, "掲載停止申請に失敗しました");
   } finally {
     setLoading(false);
   }
 }
 
 /* ─── 初期化 ───────────────── */
+
 async function initPage() {
   setLoading(true);
 
   try {
-    await fetchCsrf();
+    await App.fetchCsrf();
     await Promise.all([
       loadSummary(),
       loadPurchasedBundles(),
       loadPrompts()
     ]);
   } catch (e) {
-    updateSessionBox(false);
-    document.getElementById("prompt-list").innerHTML = "";
-    document.getElementById("prompt-empty").style.display = "block";
-    document.getElementById("bundle-list").innerHTML = "";
-    document.getElementById("bundle-empty").style.display = "block";
-    showToast(e.message || "マイページの読み込みに失敗しました", "error");
+    App.handleError(e, "マイページの初期化に失敗しました");
   } finally {
     setLoading(false);
   }
 }
 
-document.addEventListener("keydown", function (e) {
-  if (e.key === "Escape") {
-    closeEditModal();
-  }
+/* ─── キーボードショートカット ───────────────── */
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeEditModal();
 });
 
 window.onload = initPage;
+
 </script>
 </body>
 </html>
