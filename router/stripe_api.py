@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, timezone
 
 import stripe
 from fastapi import APIRouter, HTTPException, Request
@@ -9,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from db import db_transaction
 from models import CreateCheckoutSessionRequest
-from utils import ensure_user_row_exists, get_current_user_id, now_iso
+from utils import ensure_user_row_exists, get_current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,11 @@ STRIPE_WEBHOOK_SECRET = os.environ["STRIPE_WEBHOOK_SECRET"]
 SITE_URL = os.environ["SITE_URL"].rstrip("/")
 
 stripe.api_key = STRIPE_SECRET_KEY
+
+
+def _now() -> datetime:
+    """タイムゾーン付きの現在時刻（UTC）を返す"""
+    return datetime.now(timezone.utc)
 
 
 def get_product_config(product_code: str) -> dict:
@@ -83,7 +89,7 @@ def create_checkout_session(req: CreateCheckoutSessionRequest, request: Request)
                 req.product_code,
                 product["points"],
                 product["amount_jpy"],
-                now_iso(),
+                _now(),
             ),
         )
 
@@ -157,6 +163,8 @@ def _handle_checkout_completed(session: dict) -> None:
             )
             return
 
+        now = _now()
+
         # ケースB：pending レコードなし（Webhook が先着した場合）
         if not payment:
             cur.execute(
@@ -181,8 +189,8 @@ def _handle_checkout_completed(session: dict) -> None:
                     product_code,
                     points_to_add,
                     amount_jpy,
-                    now_iso(),
-                    now_iso(),
+                    now,
+                    now,
                 ),
             )
             cur.execute(
@@ -196,7 +204,6 @@ def _handle_checkout_completed(session: dict) -> None:
             return
 
         # ケースC：pending → paid
-        # payments を先に更新し、その後ポイント付与する（順序が重要）
         cur.execute(
             """
             UPDATE payments
@@ -205,7 +212,7 @@ def _handle_checkout_completed(session: dict) -> None:
                 completed_at = %s
             WHERE stripe_session_id = %s
             """,
-            (stripe_payment_intent_id, now_iso(), stripe_session_id),
+            (stripe_payment_intent_id, now, stripe_session_id),
         )
         cur.execute(
             "UPDATE users SET points = points + %s WHERE user_id = %s",
@@ -272,7 +279,6 @@ def _handle_charge_refunded(charge: dict) -> None:
         points_to_deduct = payment["points_to_add"]
         user_id = payment["user_id"]
 
-        # payments を先に refunded に更新してからポイント差し引き
         cur.execute(
             """
             UPDATE payments
@@ -288,4 +294,4 @@ def _handle_charge_refunded(charge: dict) -> None:
         logger.info(
             "charge.refunded: refunded. payment_intent_id=%s user_id=%s points_deducted=%d",
             payment_intent_id, user_id, points_to_deduct,
-            )
+                )
