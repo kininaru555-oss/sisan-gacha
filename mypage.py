@@ -314,6 +314,56 @@ def create_prompt_stop_request(prompt_id: int, req: PromptStopRequest, request: 
         row = cur.fetchone()
         return {"status": "pending", "request_id": row["id"], "prompt_id": prompt_id}
 
+@router.post("/withdraw/request")
+def create_withdraw_request(req: CreateWithdrawalRequest, request: Request):
+    with db_transaction() as (conn, cur):
+        user_id = get_current_user_id(conn, request, require_csrf=True)
+
+        if req.amount_yen < 1000:
+            raise HTTPException(status_code=400, detail="出金申請は1000円以上です")
+        if req.method not in ("paypay", "amazon_gift"):
+            raise HTTPException(status_code=400, detail="送金方法エラー")
+
+        cur.execute("SELECT yen FROM creator_wallets WHERE user_id = %s FOR UPDATE", (user_id,))
+        wallet = cur.fetchone()
+        current_yen = wallet["yen"] if wallet else 0
+        if current_yen < req.amount_yen:
+            raise HTTPException(status_code=400, detail="残高不足")
+
+        cur.execute(
+            """
+            SELECT id, used, expires_at
+            FROM withdraw_codes
+            WHERE user_id = %s AND code = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            FOR UPDATE
+            """,
+            (user_id, req.withdraw_code),
+        )
+        code_row = cur.fetchone()
+        if not code_row:
+            raise HTTPException(status_code=400, detail="出金コードが正しくありません")
+        if code_row["used"]:
+            raise HTTPException(status_code=400, detail="この出金コードは使用済みです")
+        if code_row["expires_at"] < datetime.utcnow():
+            raise HTTPException(status_code=400, detail="出金コードの有効期限が切れています")
+
+        cur.execute("UPDATE creator_wallets SET yen = yen - %s WHERE user_id = %s", (req.amount_yen, user_id))
+        cur.execute("UPDATE withdraw_codes SET used = TRUE WHERE id = %s", (code_row["id"],))
+        cur.execute(
+            """
+            INSERT INTO withdrawal_requests (
+                user_id, amount_yen, method, destination,
+                withdraw_code, status, created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, 'pending', %s)
+            RETURNING id
+            """,
+            (user_id, req.amount_yen, req.method, req.destination, req.withdraw_code, now_iso()),
+        )
+        row = cur.fetchone()
+        return {"status": "pending", "request_id": row["id"]}
 
 @router.post("/withdraw/code")
 def create_withdraw_code(request: Request):
