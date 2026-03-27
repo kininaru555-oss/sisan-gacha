@@ -13,6 +13,30 @@
     .pulse-soft {
       animation: pulseSoft 2s infinite;
     }
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .locked-text {
+      position: relative;
+      filter: blur(3px);
+      user-select: none;
+      pointer-events: none;
+    }
+    .locked-text::after {
+      content: "購入後に全文を閲覧できます";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(255,255,255,0.95));
+      color: rgb(194 65 12);
+      font-weight: 700;
+      filter: none;
+    }
     @keyframes pulseSoft {
       0%, 100% { transform: scale(1); opacity: 1; }
       50% { transform: scale(1.02); opacity: 0.96; }
@@ -152,6 +176,36 @@
                 </div>
               </div>
             </div>
+
+            <div class="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+              <div class="flex items-start justify-between gap-4 mb-4 flex-col sm:flex-row sm:items-center">
+                <div>
+                  <h2 class="text-lg font-bold">分配ルール</h2>
+                  <p class="text-sm text-gray-500 mt-1">購入と応募のメリットが分かるように表示します</p>
+                </div>
+                <div class="text-xs font-semibold rounded-full px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200">
+                  透明な収益設計
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="rounded-2xl border border-orange-100 bg-orange-50 p-4">
+                  <div class="text-sm text-gray-500">販売者</div>
+                  <div class="mt-2 text-2xl font-black text-orange-600">50%</div>
+                  <p class="mt-2 text-sm text-gray-600">福袋の販売主体に還元</p>
+                </div>
+                <div class="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  <div class="text-sm text-gray-500">著作者</div>
+                  <div class="mt-2 text-2xl font-black text-amber-600">10%</div>
+                  <p class="mt-2 text-sm text-gray-600">収録記事の著作者へ還元</p>
+                </div>
+                <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <div class="text-sm text-gray-500">残り</div>
+                  <div class="mt-2 text-2xl font-black text-gray-700">残余分</div>
+                  <p class="mt-2 text-sm text-gray-600">プラットフォーム仕様に従って処理</p>
+                </div>
+              </div>
+            </div>
           </section>
 
           <aside class="space-y-6 lg:sticky lg:top-6">
@@ -186,6 +240,14 @@
                   読み込み中...
                 </button>
 
+                <button
+                  id="entry-button"
+                  class="hidden w-full border border-amber-300 text-amber-700 hover:bg-amber-50 font-bold text-base py-3 rounded-2xl"
+                  type="button"
+                >
+                  この記事を応募する
+                </button>
+
                 <a
                   href="/bundles.html"
                   class="w-full inline-flex items-center justify-center border border-orange-200 text-orange-700 hover:bg-orange-50 font-semibold py-3 rounded-2xl"
@@ -211,6 +273,16 @@
               </div>
             </div>
 
+            <div id="recruitingBox" class="hidden rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+              <div class="flex items-start gap-3">
+                <div class="text-2xl">📦</div>
+                <div>
+                  <div class="font-bold text-amber-800">この福袋は募集中です</div>
+                  <p id="recruitingBoxText" class="mt-1 text-sm text-amber-700">記事を応募して販売開始に近づけられます。</p>
+                </div>
+              </div>
+            </div>
+
             <div class="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
               <h3 class="font-bold text-lg">購入前の目安</h3>
               <ul class="mt-4 space-y-3 text-sm text-gray-600">
@@ -221,6 +293,20 @@
             </div>
           </aside>
         </div>
+
+        <section id="bundle-preview-box" class="mt-10 hidden">
+          <div class="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-5">
+              <div>
+                <h2 class="text-xl font-bold">購入前プレビュー</h2>
+                <p class="text-sm text-gray-500 mt-1">購入前でもタイトルや一部概要を確認できます</p>
+              </div>
+              <div id="previewSummary" class="text-sm text-gray-500">--</div>
+            </div>
+
+            <div id="bundle-preview-items" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+          </div>
+        </section>
 
         <section id="bundle-items-box" class="mt-10 hidden">
           <div class="rounded-3xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
@@ -239,6 +325,35 @@
     </div>
   </div>
 
+  <div id="entryModal" class="hidden fixed inset-0 z-[140] bg-black/50 px-4 py-6 sm:px-6 overflow-y-auto">
+    <div class="min-h-full flex items-center justify-center">
+      <div class="w-full max-w-3xl rounded-3xl bg-white border border-orange-100 shadow-2xl overflow-hidden">
+        <div class="p-5 sm:p-6 border-b border-gray-200 flex items-start justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold">福袋に応募する</h2>
+            <p class="text-sm text-gray-500 mt-1">応募する記事を1つ選んで送信してください</p>
+          </div>
+          <button id="entryModalClose" type="button" class="w-10 h-10 rounded-full border border-gray-200 hover:bg-gray-50 text-lg">×</button>
+        </div>
+        <div class="p-5 sm:p-6">
+          <div id="entryLoading" class="py-10 text-center text-gray-500">応募可能な記事を読み込み中...</div>
+          <div id="entryEmpty" class="hidden py-10 text-center">
+            <div class="text-4xl">📝</div>
+            <p class="mt-3 font-semibold">応募できる記事がありません</p>
+            <p class="mt-2 text-sm text-gray-500">先に記事を投稿してから応募してください。</p>
+            <div class="mt-5">
+              <a href="/upload.html" class="inline-flex items-center justify-center rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-semibold px-5 py-3">記事を投稿する</a>
+            </div>
+          </div>
+          <div id="entryList" class="hidden space-y-3"></div>
+          <div id="entryActions" class="hidden mt-5 flex flex-col sm:flex-row gap-3 justify-end">
+            <button id="entrySubmit" type="button" class="rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-3 disabled:opacity-50 disabled:cursor-not-allowed" disabled>応募する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 translate-y-4 opacity-0 pointer-events-none transition-all duration-300 z-[120] px-4 py-3 rounded-xl border bg-white text-sm shadow-lg"></div>
 
   <script>
@@ -249,6 +364,8 @@
 
     let bundleData = null;
     let purchaseStatus = false;
+    let entryPrompts = [];
+    let selectedEntryPromptId = null;
 
     function showToast(message, type = "info") {
       const toast = document.getElementById("toast");
@@ -465,7 +582,7 @@
       if (purchaseStatus) {
         badges.push('<span class="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-3 py-1">購入済み</span>');
       }
-      if (bundle.current_article_count >= bundle.target_article_count) {
+      if (Number(bundle.current_article_count || 0) >= Number(bundle.target_article_count || 0) && Number(bundle.target_article_count || 0) > 0) {
         badges.push('<span class="inline-flex items-center rounded-full bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-1">収録完了</span>');
       }
       return badges.join("");
@@ -474,26 +591,32 @@
     function buildMicroBadges(bundle) {
       const list = [];
       list.push(`<span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1">${escapeHtml(bundle.genre || "その他")}</span>`);
-      if (bundle.current_article_count >= bundle.target_article_count) {
+      if (Number(bundle.current_article_count || 0) >= Number(bundle.target_article_count || 0) && Number(bundle.target_article_count || 0) > 0) {
         list.push('<span class="inline-flex items-center rounded-full bg-amber-50 text-amber-700 text-xs font-semibold px-3 py-1">収録完了</span>');
       }
       if (bundle.status === "active") {
         list.push('<span class="inline-flex items-center rounded-full bg-green-50 text-green-700 text-xs font-semibold px-3 py-1">購入可能</span>');
+      }
+      if (bundle.status === "recruiting") {
+        list.push('<span class="inline-flex items-center rounded-full bg-orange-50 text-orange-700 text-xs font-semibold px-3 py-1">応募受付中</span>');
       }
       return list.join("");
     }
 
     function updateBuyArea() {
       const button = document.getElementById("buy-button");
+      const entryButton = document.getElementById("entry-button");
       const note = document.getElementById("buy-note");
       const purchaseState = document.getElementById("purchaseState");
       const purchaseStateCard = document.getElementById("purchase-state-card");
       const popularityText = document.getElementById("popularityText");
       const purchasedBox = document.getElementById("purchasedBox");
+      const recruitingBox = document.getElementById("recruitingBox");
 
       if (!bundleData) {
         button.disabled = true;
         button.textContent = "読み込み中...";
+        entryButton.classList.add("hidden");
         return;
       }
 
@@ -504,10 +627,12 @@
         bundleData.status === "active" ? "公開中" :
         bundleData.status === "recruiting" ? "募集進行中" : "公開終了";
 
+      entryButton.classList.add("hidden");
+      recruitingBox.classList.add("hidden");
+
       if (purchaseStatus) {
         purchasedBox.classList.remove("hidden");
         button.disabled = false;
-        button.className = "w-full bg-emerald-600 hover:bg-emeral
         button.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg py-4 rounded-2xl";
         button.textContent = "購入済み内容を見る";
         note.textContent = "購入済みなので、内容確認へ進めます";
@@ -540,6 +665,9 @@
       button.className = "w-full bg-amber-100 text-amber-700 font-bold text-lg py-4 rounded-2xl cursor-default";
       button.textContent = "募集中";
       note.textContent = `あと ${remain} 件集まると販売開始です`;
+      entryButton.classList.remove("hidden");
+      recruitingBox.classList.remove("hidden");
+      document.getElementById("recruitingBoxText").textContent = `あと ${remain} 件集まると販売開始です。あなたの記事を応募できます。`;
     }
 
     function renderBundle() {
@@ -584,7 +712,6 @@
 
       updateBuyArea();
     }
-
     async function loadBundleDetail() {
       const bundleId = getBundleIdFromQuery();
       if (!bundleId) {
@@ -626,7 +753,6 @@
         bundleData.remaining_article_count = data.remaining_article_count ?? bundleData.remaining_article_count;
       } catch (_) {}
     }
-
     async function buyBundle() {
       if (!bundleData) {
         showToast("福袋データの読み込み前です", "error");
@@ -663,6 +789,7 @@
         } catch (_) {}
 
         renderBundle();
+        document.getElementById("bundle-preview-box")?.classList.add("hidden");
         await loadPurchasedItems();
 
         const url = new URL(window.location.href);
@@ -733,6 +860,207 @@
       }
     }
 
+    async function loadBundlePreview() {
+      if (!bundleData?.id || purchaseStatus) return;
+
+      const box = document.getElementById("bundle-preview-box");
+      const container = document.getElementById("bundle-preview-items");
+      const summary = document.getElementById("previewSummary");
+
+      try {
+        const res = await publicFetch(`/bundles/${encodeURIComponent(bundleData.id)}/preview`);
+        const data = await res.json().catch(() => ({}));
+        const items = Array.isArray(data?.items) ? data.items : [];
+
+        box.classList.remove("hidden");
+        summary.textContent = `${Number(data?.title_count || items.length)}件 / 著作者 ${Number(data?.author_count || 0)}人`;
+
+        if (!items.length) {
+          container.innerHTML = `
+            <div class="col-span-full rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center text-gray-500">
+              プレビューできる記事はまだありません。
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = items.map(item => `
+          <article class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <span class="inline-flex items-center rounded-full bg-orange-50 text-orange-700 text-xs font-semibold px-3 py-1">${escapeHtml(item.category || "カテゴリ未設定")}</span>
+              <span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1">著作者: ${escapeHtml(item.author_name || "不明")}</span>
+              ${item.has_url ? '<span class="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-1">URLあり</span>' : ''}
+            </div>
+            <h3 class="font-bold text-lg leading-snug">${escapeHtml(item.title || "無題")}</h3>
+            <div class="mt-3 rounded-2xl border border-orange-100 bg-orange-50/40 p-4">
+              <div class="text-xs font-semibold text-orange-700 mb-2">本文プレビュー</div>
+              <div class="text-sm text-gray-700 whitespace-pre-wrap break-words locked-text min-h-[72px]">${escapeHtml(item.content_preview || "プレビューはありません")}</div>
+            </div>
+            <div class="mt-3 text-xs text-gray-500">購入後に本文全文とURLを確認できます</div>
+          </article>
+        `).join("");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+
+    function normalizeEntryPrompts(data) {
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.items)) return data.items;
+      if (Array.isArray(data?.prompts)) return data.prompts;
+      if (Array.isArray(data?.articles)) return data.articles;
+      return [];
+    }
+
+    function openEntryModal() {
+      document.getElementById("entryModal").classList.remove("hidden");
+      document.body.classList.add("overflow-hidden");
+      loadEntryCandidates();
+    }
+function closeEntryModal() {
+      document.getElementById("entryModal").classList.add("hidden");
+      document.body.classList.remove("overflow-hidden");
+    }
+
+    function renderEntryCandidates() {
+      const loading = document.getElementById("entryLoading");
+      const empty = document.getElementById("entryEmpty");
+      const list = document.getElementById("entryList");
+      const actions = document.getElementById("entryActions");
+      const submit = document.getElementById("entrySubmit");
+
+      loading.classList.add("hidden");
+
+      if (!entryPrompts.length) {
+        empty.classList.remove("hidden");
+        list.classList.add("hidden");
+        actions.classList.add("hidden");
+        submit.disabled = true;
+        return;
+      }
+
+      empty.classList.add("hidden");
+      list.classList.remove("hidden");
+      actions.classList.remove("hidden");
+      submit.disabled = !selectedEntryPromptId || !entryPrompts.some(item => String(item.prompt_id ?? item.id) === String(selectedEntryPromptId) && !item.is_already_entered);
+
+      list.innerHTML = entryPrompts.map((item, index) => {
+        const promptId = item.prompt_id ?? item.id ?? `idx-${index}`;
+        const checked = String(promptId) === String(selectedEntryPromptId);
+        return `
+          <label class="block rounded-2xl border ${checked ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white'} p-4 cursor-pointer hover:border-orange-300">
+            <div class="flex items-start gap-3">
+              <input type="radio" name="entryPrompt" value="${escapeHtml(promptId)}" class="mt-1" ${checked ? 'checked' : ''} ${item.is_already_entered ? 'disabled' : ''} />
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                  <span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1">${escapeHtml(item.category || 'カテゴリ未設定')}</span>
+                  <span class="inline-flex items-center rounded-full bg-orange-50 text-orange-700 text-xs font-semibold px-3 py-1">応募候補</span>
+                </div>
+                <div class="font-bold leading-snug">${escapeHtml(item.title || '無題')}</div>
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span class="inline-flex items-center rounded-full bg-orange-50 text-orange-700 font-semibold px-2.5 py-1">${escapeHtml(item.entry_type === 'gacha' ? 'ガチャ取得記事' : '自分の投稿記事')}</span>
+                  <span class="inline-flex items-center rounded-full bg-gray-100 text-gray-700 font-semibold px-2.5 py-1">著作者: ${escapeHtml(item.author_name || '不明')}</span>
+                  ${item.has_url ? '<span class="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 font-semibold px-2.5 py-1">URLあり</span>' : ''}
+                  ${item.is_already_entered ? '<span class="inline-flex items-center rounded-full bg-amber-100 text-amber-800 font-semibold px-2.5 py-1">応募済み</span>' : ''}
+                </div>
+                <div class="mt-3 text-sm text-gray-600 whitespace-pre-wrap break-words line-clamp-3">${escapeHtml(item.content_preview || '記事概要はありません')}</div>
+              </div>
+            </div>
+          </label>
+        `;
+      }).join("");
+
+      list.querySelectorAll('input[name="entryPrompt"]').forEach((input) => {
+        input.addEventListener('change', (event) => {
+          selectedEntryPromptId = event.target.value;
+          renderEntryCandidates();
+        });
+      });
+    }
+
+    async function loadEntryCandidates() {
+      if (!bundleData?.id) {
+        showToast("福袋情報がありません", "error");
+        return;
+      }
+
+      const loading = document.getElementById("entryLoading");
+      const empty = document.getElementById("entryEmpty");
+      const list = document.getElementById("entryList");
+      const actions = document.getElementById("entryActions");
+      const emptyTitle = document.querySelector("#entryEmpty p.mt-3");
+      const emptyDesc = document.querySelector("#entryEmpty p.mt-2");
+
+      loading.classList.remove("hidden");
+      empty.classList.add("hidden");
+      list.classList.add("hidden");
+      actions.classList.add("hidden");
+      entryPrompts = [];
+      selectedEntryPromptId = null;
+
+      try {
+        const res = await authFetch(`/bundles/${encodeURIComponent(bundleData.id)}/entry-candidates/detail`);
+        const data = await res.json().catch(() => ([]));
+        entryPrompts = normalizeEntryPrompts(data);
+
+        if (!entryPrompts.some(item => String(item.prompt_id ?? item.id) === String(selectedEntryPromptId))) {
+          selectedEntryPromptId = entryPrompts.find(item => !item.is_already_entered)?.prompt_id ?? entryPrompts.find(item => !item.is_already_entered)?.id ?? null;
+        }
+
+        emptyTitle.textContent = "応募できる記事がありません";
+        emptyDesc.textContent = "先に記事を投稿するか、応募可能な記事をご用意ください。";
+        renderEntryCandidates();
+      } catch (err) {
+        console.error(err);
+        loading.classList.add("hidden");
+        empty.classList.remove("hidden");
+        list.classList.add("hidden");
+        actions.classList.add("hidden");
+        emptyTitle.textContent = "応募候補を読み込めませんでした";
+        emptyDesc.textContent = err.message || "ログイン後にもう一度お試しください。";
+      }
+    }
+
+    async function submitBundleEntry() {
+      if (!bundleData?.id) {
+        showToast("福袋情報がありません", "error");
+        return;
+      }
+      if (!selectedEntryPromptId) {
+        showToast("応募する記事を選択してください", "error");
+        return;
+      }
+
+      const submit = document.getElementById("entrySubmit");
+      submit.disabled = true;
+
+      try {
+        await authFetch("/bundles/entry", {
+          method: "POST",
+          body: JSON.stringify({
+            bundle_id: bundleData.id,
+            prompt_id: Number(selectedEntryPromptId)
+          })
+        });
+      } catch (err) {
+        submit.disabled = false;
+        showToast(err?.message || "応募に失敗しました", "error");
+        return;
+      }
+
+      submit.disabled = false;
+
+      showToast("福袋に応募しました", "success");
+      closeEntryModal();
+
+      try {
+        await Promise.all([loadBundleDetail(), loadProgress()]);
+      } catch (_) {}
+
+      renderBundle();
+    }
+
     async function initPage() {
       const loading = document.getElementById("loadingSection");
       const errorSection = document.getElementById("errorSection");
@@ -749,6 +1077,8 @@
 
         if (purchaseStatus) {
           await loadPurchasedItems();
+        } else {
+          await loadBundlePreview();
         }
 
         loading.classList.add("hidden");
@@ -764,7 +1094,22 @@
     }
 
     document.getElementById("buy-button").addEventListener("click", buyBundle);
+    document.getElementById("entry-button").addEventListener("click", openEntryModal);
+    document.getElementById("entryModalClose").addEventListener("click", closeEntryModal);
+    document.getElementById("entrySubmit").addEventListener("click", submitBundleEntry);
+    document.getElementById("entryModal").addEventListener("click", (event) => {
+      if (event.target.id === "entryModal") {
+        closeEntryModal();
+      }
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !document.getElementById("entryModal").classList.contains("hidden")) {
+        closeEntryModal();
+      }
+    });
     window.addEventListener("load", initPage);
   </script>
 </body>
 </html>
+
+    
