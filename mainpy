@@ -4,14 +4,14 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from admin import router as admin_router
-from auth import router as auth_router
-from bundles import router as bundles_router
-from gacha import router as gacha_router
 from init_db import init_db
-from mypage import router as mypage_router
-from prompts import router as prompts_router
-from stripe_api import router as stripe_router
+from routers.admin import router as admin_router
+from routers.auth import router as auth_router
+from routers.bundles import router as bundles_router
+from routers.gacha import router as gacha_router
+from routers.mypage import router as mypage_router
+from routers.prompts import router as prompts_router
+from routers.stripe_api import router as stripe_router
 
 
 app = FastAPI()
