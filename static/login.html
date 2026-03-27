@@ -1,323 +1,194 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ログイン — 記事自販機ガチャ</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&family=DotGothic16&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-
-<style>
-:root {
-  --bg:         #0a0a0f;
-  --surface:    #12121a;
-  --surface2:   #0e0e16;
-  --border:     rgba(255,220,0,0.18);
-  --yellow:     #ffd600;
-  --yellow-dim: rgba(255,214,0,0.08);
-  --amber:      #ff9100;
-  --text:       #e8e8e0;
-  --muted:      #888880;
-  --danger:     #ff4d4d;
-  --success:    #80ffb0;
-  --font-ja:    'Zen Maru Gothic', sans-serif;
-  --font-mono:  'Share Tech Mono', monospace;
-  --font-dot:   'DotGothic16', sans-serif;
-}
-
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: var(--font-ja);
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  overflow-x: hidden;
-  position: relative;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255,214,0,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,214,0,0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
-}
-
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 2px,
-    rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-.wrapper {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 32px 16px 72px;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  position: relative;
-  z-index: 1;
-}
-
-.card {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 26px 22px;
-  position: relative;
-  overflow: hidden;
-}
-
-.card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(255,214,0,0.4), transparent);
-}
-
-.badge {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: var(--amber);
-  border: 1px solid rgba(255,145,0,0.3);
-  padding: 4px 12px;
-  border-radius: 2px;
-  margin-bottom: 14px;
-  text-transform: uppercase;
-}
-
-.title {
-  font-family: var(--font-dot);
-  font-size: 2rem;
-  line-height: 1.2;
-  color: var(--yellow);
-  text-shadow: 0 0 24px rgba(255,214,0,0.25);
-  margin-bottom: 10px;
-}
-
-.desc {
-  font-size: 13px;
-  line-height: 1.8;
-  color: var(--muted);
-  margin-bottom: 22px;
-}
-
-.form-row {
-  margin-bottom: 16px;
-}
-
-.form-label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,220,0,0.12);
-  background: var(--surface2);
-  color: var(--text);
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-input:focus {
-  border-color: rgba(255,214,0,0.4);
-  box-shadow: 0 0 0 3px rgba(255,214,0,0.06);
-}
-
-.primary-btn,
-.secondary-btn {
-  width: 100%;
-  border: none;
-  border-radius: 8px;
-  padding: 14px 16px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: 0.15s ease;
-}
-
-.primary-btn {
-  background: var(--yellow);
-  color: #0a0a0f;
-  font-weight: 700;
-  margin-top: 4px;
-}
-
-.secondary-btn {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid rgba(255,220,0,0.18);
-  margin-top: 10px;
-}
-
-.primary-btn:hover:not(:disabled),
-.secondary-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.primary-btn:disabled,
-.secondary-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.note {
-  margin-top: 14px;
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.7;
-  text-align: center;
-}
-
-#toast {
-  position: fixed;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%) translateY(20px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 20px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  color: var(--text);
-  opacity: 0;
-  transition: all 0.3s;
-  pointer-events: none;
-  z-index: 220;
-  white-space: nowrap;
-}
-#toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-#toast.error {
-  border-color: rgba(255,77,77,0.4);
-  color: var(--danger);
-}
-#toast.success {
-  border-color: rgba(128,255,176,0.4);
-  color: var(--success);
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ログイン — 記事自販機ガチャ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/style-3.css">
 </head>
 
 <body>
-<div class="wrapper">
-  <div class="card">
-    <div class="badge">LOGIN</div>
-    <h1 class="title">ログイン</h1>
-    <p class="desc">
-      既存アカウントでログインします。<br>
-      Cookie認証で安全にセッション管理されます。
-    </p>
+  <div class="wrapper">
 
-    <div class="form-row">
-      <label class="form-label" for="user_id">USER ID</label>
-      <input
-        id="user_id"
-        class="form-input"
-        placeholder="user123"
-        autocomplete="username"
-      >
+    <div class="topbar">
+      <div class="logo">記事自販機ガチャ</div>
     </div>
 
-    <div class="form-row">
-      <label class="form-label" for="password">PASSWORD</label>
-      <input
-        id="password"
-        type="password"
-        class="form-input"
-        placeholder="パスワード"
-        autocomplete="current-password"
-      >
+    <section class="hero">
+      <div class="panel hero-copy fade-up">
+        <div class="hero-badge">CONTENT AUCTION STYLE PLATFORM</div>
+        <h1 class="hero-title">
+          書いた記事が、<br>
+          ガチャになる。<br>
+          福袋になる。<br>
+          何度も売れる。
+        </h1>
+
+        <p class="hero-lead">
+          そのたびに、<br>
+          あなたに収益が積み上がる。
+        </p>
+
+        <p class="hero-sub">
+          新しい収益型コンテンツ流通の仕組みです。<br><br>
+
+          面倒な販売設定や集客は不要。<br>
+          投稿するだけで、収益化が始まります。<br><br>
+
+          通常では出会えない有料級の記事を、<br>
+          ガチャや福袋で手軽に入手。<br><br>
+
+          気に入らなければ、売ることもできる。<br>
+          新しいコンテンツの楽しみ方です。<br><br>
+
+          読み終わったコンテンツも、次の価値になる。<br>
+          流通するたびに、著作者へ還元される仕組みです。
+        </p>
+      </div>
+
+      <div class="panel login-card fade-up">
+        <div class="card-title">ログイン</div>
+        <div class="card-desc">
+          すでにアカウントをお持ちの方はこちら。<br>
+          ログイン後、そのままマイページへ移動します。
+        </div>
+
+        <p class="cta-lead">今すぐ始めて、あなたの記事を収益化</p>
+
+        <div class="form-row">
+          <label class="form-label" for="user_id">USER ID</label>
+          <input
+            id="user_id"
+            class="form-input"
+            placeholder="英数字・-・_"
+            autocomplete="username"
+            maxlength="64"
+          >
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="password">PASSWORD</label>
+          <input
+            id="password"
+            type="password"
+            class="form-input"
+            placeholder="パスワード"
+            autocomplete="current-password"
+            maxlength="128"
+          >
+        </div>
+
+        <button id="loginBtn" class="primary-btn" onclick="login()">無料で始める</button>
+        <button class="secondary-btn" onclick="goRegister()">アカウントを作成</button>
+
+        <p class="cta-note">登録は無料・すぐに利用できます</p>
+
+        <div class="login-note">
+          Cookie認証により安全に管理されます。<br>
+          書き込み操作にはCSRF保護が適用されています。
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="feature-card fade-up">
+        <div class="feature-icon">📝</div>
+        <div class="feature-title">投稿する</div>
+        <div class="feature-desc">
+          ノウハウ記事や有料級コンテンツを投稿。<br>
+          投稿した記事が、そのまま流通の起点になります。
+        </div>
+        <div class="feature-highlight">CREATOR ENTRY</div>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">🎁</div>
+        <div class="feature-title">手に入れる</div>
+        <div class="feature-desc">
+          通常では出会えない有料級の記事を、<br>
+          ガチャや福袋で手軽に入手できます。
+        </div>
+        <div class="feature-highlight">GACHA / BUNDLE</div>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">💰</div>
+        <div class="feature-title">売る・還元する</div>
+        <div class="feature-desc">
+          読み終わった後、売ることもできる。<br>
+          流通するたびに、著作者にも利益が還元されます。
+        </div>
+        <div class="feature-highlight">ROYALTY FLOW</div>
+      </div>
+    </section>
+
+    <div class="footer">
+      <div class="footer-links">
+        <a href="/terms.html">利用規約</a>
+        <a href="/privacy.html">プライバシーポリシー</a>
+        <a href="/tokusho.html">特定商取引法</a>
+      </div>
+      <div class="footer-copy">© 2025 ARTICLE VENDING MACHINE</div>
     </div>
 
-    <button id="loginBtn" class="primary-btn" onclick="login()">ログインする</button>
-    <button class="secondary-btn" onclick="goRegister()">新規登録ページへ</button>
-
-    <div class="note">
-      ログイン後はマイページへ移動します。
-    </div>
   </div>
-</div>
 
-<div id="toast"></div>
+  <div id="toast"></div>
 
-<script src="/js/app.js"></script>
-<script>
-function goRegister() {
-  location.href = "/register.html";
-}
+  <script src="/js/app.js"></script>
+  <script>
+    function goRegister() {
+      location.href = "/register.html";
+    }
 
-async function login() {
-  const user_id = document.getElementById("user_id").value.trim();
-  const password = document.getElementById("password").value;
-  const btn = document.getElementById("loginBtn");
+    async function login() {
+      const user_id = document.getElementById("user_id").value.trim();
+      const password = document.getElementById("password").value;
+      const btn = document.getElementById("loginBtn");
 
-  if (!user_id) {
-    App.showToast("ユーザーIDを入力してください", "error");
-    return;
-  }
+      if (btn.disabled) {
+        return;
+      }
 
-  if (!password) {
-    App.showToast("パスワードを入力してください", "error");
-    return;
-  }
+      if (!user_id) {
+        App.showToast("ユーザーIDを入力してください", "error");
+        return;
+      }
 
-  btn.disabled = true;
+      if (!/^[a-zA-Z0-9_-]+$/.test(user_id)) {
+        App.showToast("ユーザーIDは英数字・-・_ のみ使用できます", "error");
+        return;
+      }
 
-  try {
-    App.clearClientSession();
+      if (!password) {
+        App.showToast("パスワードを入力してください", "error");
+        return;
+      }
 
-    await App.login(user_id, password);
+      btn.disabled = true;
 
-    App.showToast("ログイン成功", "success");
-    setTimeout(() => {
-      location.href = "/mypage.html";
-    }, 700);
-  } catch (e) {
-    App.handleError(e, "ログイン失敗");
-  } finally {
-    btn.disabled = false;
-  }
-}
+      try {
+        App.clearClientSession();
 
-document.getElementById("password").addEventListener("keydown", function (e) {
-  if (e.key === "Enter") {
-    login();
-  }
-});
-</script>
+        await App.login(user_id, password);
 
+        App.showToast("ログイン成功", "success");
+        setTimeout(() => {
+          location.href = "/mypage.html";
+        }, 700);
+      } catch (e) {
+        App.handleError(e, "ログイン失敗");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("password").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        login();
+      }
+    });
+  </script>
 </body>
 </html>
