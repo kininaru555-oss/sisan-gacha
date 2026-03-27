@@ -1,0 +1,37 @@
+from __future__ import annotations
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from admin import router as admin_router
+from auth import router as auth_router
+from bundles import router as bundles_router
+from gacha import router as gacha_router
+from init_db import init_db
+from mypage import router as mypage_router
+from prompts import router as prompts_router
+from stripe_api import router as stripe_router
+
+
+app = FastAPI()
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, HTTPException):
+        raise exc
+    return JSONResponse(status_code=500, content={"detail": "サーバー内部エラー"})
+
+
+init_db()
+
+app.include_router(auth_router)
+app.include_router(prompts_router)
+app.include_router(gacha_router)
+app.include_router(stripe_router)
+app.include_router(mypage_router)
+app.include_router(bundles_router)
+app.include_router(admin_router)
+
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
