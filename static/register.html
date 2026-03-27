@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アカウント作成 — 記事自販機ガチャ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/style-3.css">
+</head>
+
+<body>
+  <div class="wrapper">
+
+    <div class="topbar">
+      <div class="logo">記事自販機ガチャ</div>
+    </div>
+
+    <section class="hero">
+      <div class="panel hero-copy fade-up">
+        <div class="hero-badge">CREATE YOUR ACCOUNT</div>
+        <h1 class="hero-title">
+          投稿するだけで、<br>
+          収益化が始まる。<br>
+          あなたの記事を、<br>
+          流通する価値へ。
+        </h1>
+
+        <p class="hero-lead">
+          書いた記事が、ガチャになる。<br>
+          福袋になる。何度も売れる。
+        </p>
+
+        <p class="hero-sub">
+          面倒な販売設定や集客は不要です。<br>
+          アカウントを作成して、すぐに始められます。
+        </p>
+      </div>
+
+      <div class="panel login-card fade-up">
+        <div class="card-title">アカウント作成</div>
+        <div class="card-desc">
+          はじめて利用する方はこちら。<br>
+          登録後、そのままログインして利用を開始します。
+        </div>
+
+        <p class="cta-lead">今すぐ始めて、あなたの記事を収益化</p>
+
+        <div class="form-row">
+          <label class="form-label" for="user_id">USER ID</label>
+          <input
+            id="user_id"
+            class="form-input"
+            placeholder="半角英数字・記号"
+            autocomplete="username"
+            maxlength="64"
+          >
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="password">PASSWORD</label>
+          <input
+            id="password"
+            type="password"
+            class="form-input"
+            placeholder="8文字以上"
+            autocomplete="new-password"
+            maxlength="128"
+          >
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" for="password_confirm">CONFIRM PASSWORD</label>
+          <input
+            id="password_confirm"
+            type="password"
+            class="form-input"
+            placeholder="確認用パスワード"
+            autocomplete="new-password"
+            maxlength="128"
+          >
+        </div>
+
+        <button id="registerBtn" class="primary-btn" onclick="register()">無料で始める</button>
+        <button class="secondary-btn" onclick="goLogin()">ログインページへ</button>
+
+        <p class="cta-note">登録は無料・すぐに利用できます</p>
+
+        <div class="login-note">
+          登録後は安全な認証フローで自動ログインします。<br>
+          書き込み操作にはCSRF保護が適用されています。
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="feature-card fade-up">
+        <div class="feature-icon">📝</div>
+        <div class="feature-title">投稿する</div>
+        <div class="feature-desc">
+          ノウハウ記事や有料級コンテンツを投稿。<br>
+          投稿した記事が、そのまま流通の起点になります。
+        </div>
+        <div class="feature-highlight">CREATOR ENTRY</div>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">🎁</div>
+        <div class="feature-title">流通する</div>
+        <div class="feature-desc">
+          記事はガチャや福袋として広がり、<br>
+          新しい読者との接点を生みます。
+        </div>
+        <div class="feature-highlight">GACHA / BUNDLE</div>
+      </div>
+
+      <div class="feature-card fade-up">
+        <div class="feature-icon">💰</div>
+        <div class="feature-title">還元される</div>
+        <div class="feature-desc">
+          流通するたびに、著作者へ利益が還元される。<br>
+          収益型コンテンツ流通の仕組みです。
+        </div>
+        <div class="feature-highlight">ROYALTY FLOW</div>
+      </div>
+    </section>
+
+    <div class="footer">
+      <div class="footer-links">
+        <a href="/terms.html">利用規約</a>
+        <a href="/privacy.html">プライバシーポリシー</a>
+        <a href="/tokusho.html">特定商取引法</a>
+      </div>
+      <div class="footer-copy">© 2025 ARTICLE VENDING MACHINE</div>
+    </div>
+
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    function goLogin() {
+      location.href = "/";
+    }
+
+    async function register() {
+      const userId = document.getElementById("user_id").value.trim();
+      const password = document.getElementById("password").value;
+      const passwordConfirm = document.getElementById("password_confirm").value;
+      const btn = document.getElementById("registerBtn");
+
+      if (!userId) {
+        App.showToast("ユーザーIDを入力してください", "error");
+        return;
+      }
+
+      if (!password) {
+        App.showToast("パスワードを入力してください", "error");
+        return;
+      }
+
+      if (password.length < 8) {
+        App.showToast("パスワードは8文字以上で入力してください", "error");
+        return;
+      }
+
+      if (!passwordConfirm) {
+        App.showToast("確認用パスワードを入力してください", "error");
+        return;
+      }
+
+      if (password !== passwordConfirm) {
+        App.showToast("パスワードが一致しません", "error");
+        return;
+      }
+
+      btn.disabled = true;
+
+      try {
+        App.clearClientSession();
+
+        if (typeof App.register !== "function") {
+          throw new Error("App.register が未実装です。app.js 側に register 関数を追加してください。");
+        }
+
+        await App.register(userId, password);
+        await App.login(userId, password);
+
+        App.showToast("登録完了。ログインしました", "success");
+        setTimeout(() => {
+          location.href = "/mypage.html";
+        }, 700);
+      } catch (e) {
+        App.handleError(e, "登録失敗");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("password_confirm").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        register();
+      }
+    });
+  </script>
+</body>
+</html>
