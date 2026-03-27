@@ -11,7 +11,7 @@ mypage.py — マイページAPI（収益・投稿管理・出金フロー）
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 import time
 
@@ -414,7 +414,7 @@ def create_withdraw_code(request: Request):
         )
 
         code = f"{secrets.randbelow(900000) + 100000}"  # 6桁数字
-        expires_at = datetime.utcnow() + timedelta(minutes=10)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
 
         cur.execute(
             """
@@ -468,14 +468,11 @@ def create_withdraw_request(req: CreateWithdrawalRequest, request: Request):
             raise HTTPException(status_code=400, detail="出金コードが正しくありません")
         if code_row["used"]:
             raise HTTPException(status_code=400, detail="この出金コードは既に使用されています")
-        if code_row["expires_at"] < datetime.utcnow():
+        if code_row["expires_at"] < datetime.now(timezone.utc):
             raise HTTPException(status_code=400, detail="出金コードの有効期限が切れています")
 
-        # 残高減算 + コード使用済み + 申請登録
-        cur.execute(
-            "UPDATE creator_wallets SET yen = yen - %s WHERE user_id = %s",
-            (req.amount_yen, user_id),
-        )
+        # 残高はadminによる承認時に減算（admin.py側で処理）
+        # コード使用済み + 申請登録
         cur.execute(
             "UPDATE withdraw_codes SET used = TRUE WHERE id = %s",
             (code_row["id"],),
