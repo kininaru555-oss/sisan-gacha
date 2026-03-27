@@ -16,7 +16,9 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from db import db_cursor, db_transaction
 from dependencies import get_current_user_id_dep
 from models import CreatePromptRequest
-from utils import ensure_user_row_exists, now_iso
+from datetime import datetime, timezone
+
+from utils import ensure_user_row_exists
 
 router = APIRouter(prefix="/prompts", tags=["prompts"])
 
@@ -108,7 +110,7 @@ def create_prompt(req: CreatePromptRequest, request: Request):
                 req.content,
                 req.category,
                 req.url,
-                now_iso(),
+                datetime.now(timezone.utc),
             ),
         )
         prompt_id = cur.fetchone()["id"]
@@ -204,4 +206,4 @@ def get_ranking(limit: int = Query(default=20, ge=1, le=50)):
                 }
                 for row in rows
             ]
-        }
+                }
