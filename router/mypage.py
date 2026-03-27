@@ -1,3 +1,13 @@
+"""
+mypage.py — マイページAPI（収益・投稿管理・出金フロー）
+
+仕様書準拠：
+- 自分のデータのみアクセス可能（所有者チェック）
+- 書き込み系はCSRF必須
+- 出金コードは1分間に1回制限
+- 投稿停止申請の二重防止
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -8,25 +18,74 @@ import time
 from fastapi import APIRouter, HTTPException, Request
 
 from db import db_transaction
+from dependencies import get_current_user_id_dep   # ← dependencies.pyを使用
 from models import (
     CreateWithdrawalRequest,
     PromptStopRequest,
     TogglePromptFlagRequest,
     UpdatePromptRequest,
 )
-from utils import get_current_user_id, now_iso
 
+router = APIRouter(prefix="/mypage", tags=["mypage"])
 
-router = APIRouter()
-
+# 出金コード生成レート制限（インメモリ）
 withdraw_rate_limit = defaultdict(list)
 RATE_LIMIT_SECONDS = 60
 
 
-@router.get("/mypage/history")
-def mypage_history(request: Request):
+@router.get("")
+def mypage(request: Request):
+    """マイページ基本情報"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request)
+        user_id = get_current_user_id_dep(request, conn)
+
+        # ウォレット残高
+        cur.execute(
+            "SELECT COALESCE(yen, 0) AS yen FROM creator_wallets WHERE user_id = %s",
+            (user_id,),
+        )
+        wallet = cur.fetchone()
+
+        # ユーザー情報
+        cur.execute(
+            "SELECT points, locked_points, post_count FROM users WHERE user_id = %s",
+            (user_id,),
+        )
+        user = cur.fetchone() or {}
+
+        return {
+            "status": "ok",
+            "user_id": user_id,
+            "yen": wallet["yen"] if wallet else 0,
+            "points": user.get("points", 0),
+            "locked_points": user.get("locked_points", 0),
+            "post_count": user.get("post_count", 0),
+        }
+
+
+@router.get("/status")
+def mypage_status(request: Request):
+    """投稿可能状況"""
+    with db_transaction() as (conn, cur):
+        user_id = get_current_user_id_dep(request, conn)
+        cur.execute("SELECT post_count FROM users WHERE user_id = %s", (user_id,))
+        user = cur.fetchone() or {}
+        post_count = user.get("post_count", 0)
+
+        return {
+            "status": "ok",
+            "post_count": post_count,
+            "free_limit": 10,
+            "next_cost": 0 if post_count < 10 else 100,
+        }
+
+
+@router.get("/history")
+def mypage_history(request: Request):
+    """ガチャ取得履歴（最大50件）"""
+    with db_transaction() as (conn, cur):
+        user_id = get_current_user_id_dep(request, conn)
+
         cur.execute(
             """
             SELECT
@@ -44,21 +103,28 @@ def mypage_history(request: Request):
             (user_id,),
         )
         rows = cur.fetchall()
-        return [
-            {
-                "title": row["title"],
-                "content": row["content"],
-                "category": row["category"],
-            }
-            for row in rows
-        ]
+
+        return {
+            "status": "ok",
+            "history": [
+                {
+                    "title": row["title"],
+                    "content": row["content"],
+                    "category": row["category"],
+                    "viewed_at": row["viewed_at"],
+                }
+                for row in rows
+            ]
+        }
 
 
-@router.get("/mypage/earnings")
+@router.get("/earnings")
 def mypage_earnings(request: Request):
+    """収益集計"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request)
+        user_id = get_current_user_id_dep(request, conn)
 
+        # ガチャ報酬（1回15円）
         cur.execute(
             """
             SELECT COALESCE(COUNT(g.id) * 15, 0) AS gacha_yen
@@ -70,20 +136,26 @@ def mypage_earnings(request: Request):
         )
         gacha_yen = cur.fetchone()["gacha_yen"]
 
+        # 福袋報酬（投稿者分）
         cur.execute(
-            "SELECT COALESCE(SUM(entry_yen), 0) AS bundle_entry_yen FROM bundle_reward_distributions WHERE entry_user_id = %s",
+            "SELECT COALESCE(SUM(entry_yen), 0) AS bundle_entry_yen "
+            "FROM bundle_reward_distributions WHERE entry_user_id = %s",
             (user_id,),
         )
         bundle_entry_yen = cur.fetchone()["bundle_entry_yen"]
 
+        # 福袋報酬（原作者分）
         cur.execute(
-            "SELECT COALESCE(SUM(creator_yen), 0) AS bundle_creator_yen FROM bundle_reward_distributions WHERE original_creator_user_id = %s",
+            "SELECT COALESCE(SUM(creator_yen), 0) AS bundle_creator_yen "
+            "FROM bundle_reward_distributions WHERE original_creator_user_id = %s",
             (user_id,),
         )
         bundle_creator_yen = cur.fetchone()["bundle_creator_yen"]
 
         total_yen = gacha_yen + bundle_entry_yen + bundle_creator_yen
+
         return {
+            "status": "ok",
             "total_yen": total_yen,
             "gacha_yen": gacha_yen,
             "bundle_entry_yen": bundle_entry_yen,
@@ -91,24 +163,11 @@ def mypage_earnings(request: Request):
         }
 
 
-@router.get("/mypage/status")
-def mypage_status(request: Request):
-    with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request)
-        cur.execute("SELECT post_count FROM users WHERE user_id = %s", (user_id,))
-        user = cur.fetchone()
-        post_count = user["post_count"] if user else 0
-        return {
-            "post_count": post_count,
-            "free_limit": 10,
-            "next_cost": 0 if post_count < 10 else 100,
-        }
-
-
-@router.get("/mypage/bundles")
+@router.get("/bundles")
 def mypage_bundles(request: Request):
+    """購入済み福袋一覧"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request)
+        user_id = get_current_user_id_dep(request, conn)
 
         cur.execute(
             """
@@ -125,32 +184,37 @@ def mypage_bundles(request: Request):
             FROM bundle_purchases bp
             INNER JOIN bundles b ON b.id = bp.bundle_id
             WHERE bp.user_id = %s
-            ORDER BY bp.created_at DESC, bp.id DESC
+            ORDER BY bp.created_at DESC
             """,
             (user_id,),
         )
         rows = cur.fetchall()
 
-        return [
-            {
-                "bundle_id": row["bundle_id"],
-                "title": row["title"],
-                "description": row["description"],
-                "genre": row["genre"],
-                "status": row["status"],
-                "price_points": row["price_points"],
-                "target_article_count": row["target_article_count"],
-                "published_at": row["published_at"],
-                "purchased_at": row["purchased_at"],
-            }
-            for row in rows
-        ]
+        return {
+            "status": "ok",
+            "bundles": [
+                {
+                    "bundle_id": row["bundle_id"],
+                    "title": row["title"],
+                    "description": row["description"],
+                    "genre": row["genre"],
+                    "status": row["status"],
+                    "price_points": row["price_points"],
+                    "target_article_count": row["target_article_count"],
+                    "published_at": row["published_at"],
+                    "purchased_at": row["purchased_at"],
+                }
+                for row in rows
+            ]
+        }
 
 
-@router.get("/mypage/prompts")
+@router.get("/prompts")
 def mypage_prompts(request: Request):
+    """自分の投稿一覧"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request)
+        user_id = get_current_user_id_dep(request, conn)
+
         cur.execute(
             """
             SELECT
@@ -164,72 +228,61 @@ def mypage_prompts(request: Request):
                 p.bundle_entry_enabled,
                 p.is_visible,
                 EXISTS (
-                    SELECT 1
-                    FROM prompt_stop_requests psr
+                    SELECT 1 FROM prompt_stop_requests psr
                     WHERE psr.prompt_id = p.id
                       AND psr.user_id = %s
                       AND psr.status = 'pending'
                 ) AS has_pending_stop_request
             FROM prompts p
             WHERE p.user_id = %s
-            ORDER BY CAST(p.created_at AS TIMESTAMP) DESC, p.id DESC
+            ORDER BY p.created_at DESC, p.id DESC
             """,
             (user_id, user_id),
         )
         rows = cur.fetchall()
-        return [
-            {
-                "id": row["id"],
-                "title": row["title"],
-                "content": row["content"],
-                "category": row["category"],
-                "url": row["url"],
-                "created_at": row["created_at"],
-                "resale_offer_enabled": row["resale_offer_enabled"],
-                "bundle_entry_enabled": row["bundle_entry_enabled"],
-                "is_visible": row["is_visible"],
-                "has_pending_stop_request": row["has_pending_stop_request"],
-            }
-            for row in rows
-        ]
-
-
-@router.get("/mypage")
-def mypage(request: Request):
-    with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request)
-        cur.execute("SELECT yen FROM creator_wallets WHERE user_id = %s", (user_id,))
-        wallet = cur.fetchone()
-        cur.execute(
-            "SELECT points, locked_points, post_count FROM users WHERE user_id = %s",
-            (user_id,),
-        )
-        user = cur.fetchone()
 
         return {
-            "user_id": user_id,
-            "yen": wallet["yen"] if wallet else 0,
-            "points": user["points"] if user else 0,
-            "locked_points": user["locked_points"] if user else 0,
-            "post_count": user["post_count"] if user else 0,
+            "status": "ok",
+            "prompts": [
+                {
+                    "id": row["id"],
+                    "title": row["title"],
+                    "content": row["content"],
+                    "category": row["category"],
+                    "url": row["url"],
+                    "created_at": row["created_at"],
+                    "resale_offer_enabled": row["resale_offer_enabled"],
+                    "bundle_entry_enabled": row["bundle_entry_enabled"],
+                    "is_visible": row["is_visible"],
+                    "has_pending_stop_request": row["has_pending_stop_request"],
+                }
+                for row in rows
+            ]
         }
 
 
-@router.post("/mypage/prompts/{prompt_id}/resale-toggle")
+# ─────────────────────────────────────────────
+# 投稿管理（書き込み系：CSRF必須）
+# ─────────────────────────────────────────────
+@router.post("/prompts/{prompt_id}/resale-toggle")
 def toggle_prompt_resale(prompt_id: int, req: TogglePromptFlagRequest, request: Request):
+    """再販売フラグのON/OFF"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request, require_csrf=True)
-        cur.execute("SELECT id, user_id FROM prompts WHERE id = %s FOR UPDATE", (prompt_id,))
+        user_id = get_current_user_id_dep(request, conn, require_csrf=True)
+
+        cur.execute(
+            "SELECT id, user_id FROM prompts WHERE id = %s FOR UPDATE",
+            (prompt_id,),
+        )
         prompt = cur.fetchone()
-        if not prompt:
-            raise HTTPException(status_code=404, detail="記事が見つかりません")
-        if prompt["user_id"] != user_id:
+        if not prompt or prompt["user_id"] != user_id:
             raise HTTPException(status_code=403, detail="自分の記事のみ変更できます")
 
         cur.execute(
             "UPDATE prompts SET resale_offer_enabled = %s WHERE id = %s",
             (req.enabled, prompt_id),
         )
+
         return {
             "status": "ok",
             "prompt_id": prompt_id,
@@ -237,21 +290,25 @@ def toggle_prompt_resale(prompt_id: int, req: TogglePromptFlagRequest, request: 
         }
 
 
-@router.post("/mypage/prompts/{prompt_id}/bundle-toggle")
+@router.post("/prompts/{prompt_id}/bundle-toggle")
 def toggle_prompt_bundle(prompt_id: int, req: TogglePromptFlagRequest, request: Request):
+    """福袋参加フラグのON/OFF"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request, require_csrf=True)
-        cur.execute("SELECT id, user_id FROM prompts WHERE id = %s FOR UPDATE", (prompt_id,))
+        user_id = get_current_user_id_dep(request, conn, require_csrf=True)
+
+        cur.execute(
+            "SELECT id, user_id FROM prompts WHERE id = %s FOR UPDATE",
+            (prompt_id,),
+        )
         prompt = cur.fetchone()
-        if not prompt:
-            raise HTTPException(status_code=404, detail="記事が見つかりません")
-        if prompt["user_id"] != user_id:
+        if not prompt or prompt["user_id"] != user_id:
             raise HTTPException(status_code=403, detail="自分の記事のみ変更できます")
 
         cur.execute(
             "UPDATE prompts SET bundle_entry_enabled = %s WHERE id = %s",
             (req.enabled, prompt_id),
         )
+
         return {
             "status": "ok",
             "prompt_id": prompt_id,
@@ -259,74 +316,61 @@ def toggle_prompt_bundle(prompt_id: int, req: TogglePromptFlagRequest, request: 
         }
 
 
-@router.patch("/mypage/prompts/{prompt_id}")
+@router.patch("/prompts/{prompt_id}")
 def update_my_prompt(prompt_id: int, req: UpdatePromptRequest, request: Request):
+    """自分の記事を更新"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request, require_csrf=True)
+        user_id = get_current_user_id_dep(request, conn, require_csrf=True)
 
         cur.execute(
             """
-            SELECT id, user_id, title, content, category, url
-            FROM prompts
-            WHERE id = %s
-            FOR UPDATE
+            SELECT id, user_id FROM prompts WHERE id = %s FOR UPDATE
             """,
             (prompt_id,),
         )
         prompt = cur.fetchone()
-
-        if not prompt:
-            raise HTTPException(status_code=404, detail="記事が見つかりません")
-        if prompt["user_id"] != user_id:
+        if not prompt or prompt["user_id"] != user_id:
             raise HTTPException(status_code=403, detail="自分の記事のみ更新できます")
-
-        new_title = req.title if req.title is not None else prompt["title"]
-        new_content = req.content if req.content is not None else prompt["content"]
-        new_category = req.category if req.category is not None else prompt["category"]
-        new_url = req.url if req.url is not None else prompt["url"]
 
         cur.execute(
             """
             UPDATE prompts
-            SET title = %s,
-                content = %s,
-                category = %s,
-                url = %s
+            SET title = COALESCE(%s, title),
+                content = COALESCE(%s, content),
+                category = COALESCE(%s, category),
+                url = COALESCE(%s, url)
             WHERE id = %s
             """,
-            (new_title, new_content, new_category, new_url, prompt_id),
+            (req.title, req.content, req.category, req.url, prompt_id),
         )
 
-        return {
-            "status": "ok",
-            "prompt_id": prompt_id,
-        }
+        return {"status": "ok", "prompt_id": prompt_id}
 
 
-@router.post("/mypage/prompts/{prompt_id}/stop-request")
+@router.post("/prompts/{prompt_id}/stop-request")
 def create_prompt_stop_request(prompt_id: int, req: PromptStopRequest, request: Request):
+    """掲載停止申請"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request, require_csrf=True)
-        cur.execute("SELECT id, user_id FROM prompts WHERE id = %s FOR UPDATE", (prompt_id,))
-        prompt = cur.fetchone()
-        if not prompt:
-            raise HTTPException(status_code=404, detail="記事が見つかりません")
-        if prompt["user_id"] != user_id:
-            raise HTTPException(status_code=403, detail="自分の記事のみ申請できます")
+        user_id = get_current_user_id_dep(request, conn, require_csrf=True)
 
         cur.execute(
+            "SELECT id, user_id FROM prompts WHERE id = %s FOR UPDATE",
+            (prompt_id,),
+        )
+        prompt = cur.fetchone()
+        if not prompt or prompt["user_id"] != user_id:
+            raise HTTPException(status_code=403, detail="自分の記事のみ申請できます")
+
+        # 二重申請防止
+        cur.execute(
             """
-            SELECT id
-            FROM prompt_stop_requests
-            WHERE prompt_id = %s
-              AND user_id = %s
-              AND status = 'pending'
-            LIMIT 1
+            SELECT 1 FROM prompt_stop_requests
+            WHERE prompt_id = %s AND user_id = %s AND status = 'pending'
             """,
             (prompt_id, user_id),
         )
         if cur.fetchone():
-            raise HTTPException(status_code=400, detail="掲載停止申請は受付中です")
+            raise HTTPException(status_code=400, detail="既に掲載停止申請が受付中です")
 
         cur.execute(
             """
@@ -337,6 +381,7 @@ def create_prompt_stop_request(prompt_id: int, req: PromptStopRequest, request: 
             (prompt_id, user_id, req.reason),
         )
         row = cur.fetchone()
+
         return {
             "status": "pending",
             "request_id": row["id"],
@@ -344,25 +389,72 @@ def create_prompt_stop_request(prompt_id: int, req: PromptStopRequest, request: 
         }
 
 
+# ─────────────────────────────────────────────
+# 出金機能
+# ─────────────────────────────────────────────
+@router.post("/withdraw/code")
+def create_withdraw_code(request: Request):
+    """出金コード発行（1分間に1回制限）"""
+    with db_transaction() as (conn, cur):
+        user_id = get_current_user_id_dep(request, conn, require_csrf=True)
+
+        # レート制限
+        now = time.time()
+        withdraw_rate_limit[user_id] = [
+            t for t in withdraw_rate_limit[user_id] if now - t < RATE_LIMIT_SECONDS
+        ]
+        if len(withdraw_rate_limit[user_id]) >= 1:
+            raise HTTPException(
+                status_code=429,
+                detail="出金コードは1分間に1回のみ発行可能です"
+            )
+        withdraw_rate_limit[user_id].append(now)
+
+        # 古い未使用コードを無効化
+        cur.execute(
+            "UPDATE withdraw_codes SET used = TRUE WHERE user_id = %s AND used = FALSE",
+            (user_id,),
+        )
+
+        code = f"{secrets.randbelow(900000) + 100000}"  # 6桁数字
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+        cur.execute(
+            """
+            INSERT INTO withdraw_codes (user_id, code, expires_at, used)
+            VALUES (%s, %s, %s, FALSE)
+            """,
+            (user_id, code, expires_at),
+        )
+
+        return {
+            "status": "ok",
+            "code": code,
+            "expires_in": "10分",
+        }
+
+
 @router.post("/withdraw/request")
 def create_withdraw_request(req: CreateWithdrawalRequest, request: Request):
+    """出金申請"""
     with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request, require_csrf=True)
+        user_id = get_current_user_id_dep(request, conn, require_csrf=True)
 
         if req.amount_yen < 1000:
-            raise HTTPException(status_code=400, detail="出金申請は1000円以上です")
+            raise HTTPException(status_code=400, detail="出金は1000円以上から可能です")
         if req.method not in ("paypay", "amazon_gift"):
-            raise HTTPException(status_code=400, detail="送金方法エラー")
+            raise HTTPException(status_code=400, detail="送金方法が不正です")
 
+        # 残高確認
         cur.execute(
             "SELECT yen FROM creator_wallets WHERE user_id = %s FOR UPDATE",
             (user_id,),
         )
         wallet = cur.fetchone()
-        current_yen = wallet["yen"] if wallet else 0
-        if current_yen < req.amount_yen:
-            raise HTTPException(status_code=400, detail="残高不足")
+        if not wallet or wallet["yen"] < req.amount_yen:
+            raise HTTPException(status_code=400, detail="残高が不足しています")
 
+        # 出金コード検証
         cur.execute(
             """
             SELECT id, used, expires_at
@@ -375,13 +467,15 @@ def create_withdraw_request(req: CreateWithdrawalRequest, request: Request):
             (user_id, req.withdraw_code),
         )
         code_row = cur.fetchone()
+
         if not code_row:
             raise HTTPException(status_code=400, detail="出金コードが正しくありません")
         if code_row["used"]:
-            raise HTTPException(status_code=400, detail="この出金コードは使用済みです")
+            raise HTTPException(status_code=400, detail="この出金コードは既に使用されています")
         if code_row["expires_at"] < datetime.utcnow():
             raise HTTPException(status_code=400, detail="出金コードの有効期限が切れています")
 
+        # 残高減算 + コード使用済み + 申請登録
         cur.execute(
             "UPDATE creator_wallets SET yen = yen - %s WHERE user_id = %s",
             (req.amount_yen, user_id),
@@ -405,46 +499,13 @@ def create_withdraw_request(req: CreateWithdrawalRequest, request: Request):
                 req.method,
                 req.destination,
                 req.withdraw_code,
-                now_iso(),
+                datetime.utcnow().isoformat(),
             ),
         )
         row = cur.fetchone()
+
         return {
             "status": "pending",
             "request_id": row["id"],
-        }
-
-
-@router.post("/withdraw/code")
-def create_withdraw_code(request: Request):
-    with db_transaction() as (conn, cur):
-        user_id = get_current_user_id(conn, request, require_csrf=True)
-
-        now = time.time()
-        withdraw_rate_limit[user_id] = [
-            t for t in withdraw_rate_limit[user_id]
-            if now - t < RATE_LIMIT_SECONDS
-        ]
-        if len(withdraw_rate_limit[user_id]) >= 1:
-            raise HTTPException(status_code=429, detail="出金コードは1分間に1回までです")
-        withdraw_rate_limit[user_id].append(now)
-
-        code = f"{secrets.randbelow(900000) + 100000}"
-        expires = datetime.utcnow() + timedelta(minutes=10)
-
-        cur.execute(
-            "UPDATE withdraw_codes SET used = TRUE WHERE user_id = %s AND used = FALSE",
-            (user_id,),
-        )
-        cur.execute(
-            """
-            INSERT INTO withdraw_codes (user_id, code, expires_at, used)
-            VALUES (%s, %s, %s, FALSE)
-            """,
-            (user_id, code, expires),
-        )
-        return {
-            "code": code,
-            "expires_in": "10分",
-        }
-       
+            "amount_yen": req.amount_yen,
+}
