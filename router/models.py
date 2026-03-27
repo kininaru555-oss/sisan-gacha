@@ -3,12 +3,16 @@ models.py — Pydanticモデル定義（バリデーション強化版）
 
 ・フィールド長制限の追加（XSS/パフォーマンス対策）
 ・必須項目の明確化
-・レスポンス用モデルも追加推奨（将来的に）
+・福袋・出金関連のモデルを強化
+・レスポンス用モデルも徐々に追加
 """
 
 from __future__ import annotations
-from typing import Literal
-from pydantic import BaseModel, Field
+
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator
+
 
 # ─────────────────────────────────────────────
 # 認証関連
@@ -34,10 +38,10 @@ class LoginRequest(BaseModel):
 class CreatePromptRequest(BaseModel):
     """記事投稿リクエスト（仕様書準拠）"""
     title: str = Field(..., min_length=1, max_length=200)
-    content: str = Field(..., min_length=1, max_length=5000)   # 必要に応じて調整
+    content: str = Field(..., min_length=1, max_length=5000)
     category: str = Field(..., min_length=1, max_length=50)
     url: Optional[str] = Field(None, max_length=500)
-    bundle_consent: bool = Field(True, description="福袋への提供に同意する")
+    bundle_consent: bool = Field(..., description="福袋への提供に同意する（必須）")
 
     @field_validator("title", "content", "category")
     @classmethod
@@ -53,7 +57,7 @@ class CreatePromptRequest(BaseModel):
 
 
 class UpdatePromptRequest(BaseModel):
-    """記事更新リクエスト（将来的に使用）"""
+    """記事更新リクエスト"""
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     content: Optional[str] = Field(None, min_length=1, max_length=5000)
     category: Optional[str] = Field(None, min_length=1, max_length=50)
@@ -64,7 +68,7 @@ class UpdatePromptRequest(BaseModel):
 # ガチャ関連
 # ─────────────────────────────────────────────
 class GachaRequest(BaseModel):
-    """ガチャ実行リクエスト（現在は空でもOK）"""
+    """ガチャ実行リクエスト"""
     category: Optional[str] = Field(None, max_length=50)
 
 
@@ -72,6 +76,7 @@ class GachaRequest(BaseModel):
 # 福袋（Bundle）関連
 # ─────────────────────────────────────────────
 class CreateBundleRequest(BaseModel):
+    """福袋作成（管理者用）"""
     title: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     target_article_count: int = Field(..., ge=1, le=50)
@@ -79,33 +84,42 @@ class CreateBundleRequest(BaseModel):
     price_points: int = Field(..., ge=10, le=10000)
 
 
+class BundleEntryRequest(BaseModel):
+    """ユーザー側：福袋に応募"""
+    bundle_id: int = Field(..., gt=0)
+    prompt_id: int = Field(..., gt=0)
+
+
 class AddBundleItemRequest(BaseModel):
+    """管理者側：福袋に記事を直接追加"""
     bundle_id: int = Field(..., gt=0)
     prompt_id: int = Field(..., gt=0)
 
 
 class PublishBundleRequest(BaseModel):
+    """福袋を販売開始"""
     bundle_id: int = Field(..., gt=0)
 
 
 class CloseBundleRequest(BaseModel):
+    """福袋を締め切り"""
     bundle_id: int = Field(..., gt=0)
 
 
 class BuyBundleRequest(BaseModel):
+    """福袋を購入"""
     bundle_id: int = Field(..., gt=0)
 
 
 class DistributeBundleRequest(BaseModel):
+    """分配実行（管理者用）"""
     bundle_id: int = Field(..., gt=0)
     distribution_round: int = Field(1, ge=1)
 
 
-
 # ─────────────────────────────────────────────
-# 出金・課金関連
+# 出金・課金関連（ここを更新）
 # ─────────────────────────────────────────────
-
 class CreateCheckoutSessionRequest(BaseModel):
     """Stripe Checkoutセッション作成"""
     product_code: str = Field(..., min_length=1, max_length=50)
@@ -114,13 +128,13 @@ class CreateCheckoutSessionRequest(BaseModel):
 class CreateWithdrawalRequest(BaseModel):
     """出金申請リクエスト（ユーザー側）
     
-    注意: withdraw_code は出金コード発行後にユーザーが入力する値です。
+    注意: withdraw_code は出金コード発行APIで取得した6桁のコードです。
     """
     amount_yen: int = Field(
         ..., 
         ge=1000, 
         le=1000000, 
-        description="出金金額（1000円以上）"
+        description="出金金額（1000円以上、100万円以下）"
     )
     method: Literal["paypay", "amazon_gift"] = Field(
         ..., 
@@ -130,7 +144,7 @@ class CreateWithdrawalRequest(BaseModel):
         ..., 
         min_length=1, 
         max_length=200, 
-        description="送金先情報（PayPay ID、Amazonギフト券メールアドレスなど）"
+        description="送金先情報（PayPay ID、Amazonギフト券のメールアドレスなど）"
     )
     withdraw_code: str = Field(
         ..., 
@@ -152,29 +166,34 @@ class ProcessWithdrawRequest(BaseModel):
     status: Literal["approved", "paid", "rejected"] = Field(...)
     admin_note: Optional[str] = Field(None, max_length=500)
 
+
 # ─────────────────────────────────────────────
 # プロンプト停止申請関連
 # ─────────────────────────────────────────────
 class PromptStopRequest(BaseModel):
+    """掲載停止申請（ユーザー側）"""
     reason: Optional[str] = Field(None, max_length=500)
 
 
 class ProcessPromptStopRequest(BaseModel):
-    status: str = Field(..., pattern=r"^(approved|rejected)$")
+    """停止申請処理（管理者側）"""
+    status: Literal["approved", "rejected"] = Field(...)
     admin_note: Optional[str] = Field(None, max_length=500)
 
 
 # ─────────────────────────────────────────────
-# その他（将来的に使用）
+# その他（フラグ切り替え）
 # ─────────────────────────────────────────────
 class TogglePromptFlagRequest(BaseModel):
-    """プロンプトの各種フラグ切り替え（将来的に使用）"""
+    """再販売オファー / 福袋利用許可のON/OFF"""
     enabled: bool
 
 
-# レスポンス用モデル例（任意で追加可能）
+# ─────────────────────────────────────────────
+# レスポンス用モデル例（将来的に拡張推奨）
+# ─────────────────────────────────────────────
 class PromptResponse(BaseModel):
     id: int
     title: str
-    category: str
+    category: Optional[str]
     created_at: str
