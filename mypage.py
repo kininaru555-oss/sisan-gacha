@@ -138,6 +138,8 @@ def mypage_bundles(request: Request):
             for row in rows
         ]
 
+@router.post("/withdraw/request")
+def create_withdraw_request(...)
 
 @router.get("/mypage/prompts")
 def mypage_prompts(request: Request):
