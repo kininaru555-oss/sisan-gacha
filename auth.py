@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
 from db import db_transaction
+from models import LoginRequest, RegisterRequest
 from security import (
     clear_auth_cookies,
     issue_login_session,
@@ -15,26 +13,10 @@ from security import (
     rotate_refresh_session,
     set_auth_cookies,
 )
+from utils import client_ip
 
 
 router = APIRouter()
-
-
-class RegisterRequest(BaseModel):
-    user_id: str
-    password: str
-
-
-class LoginRequest(BaseModel):
-    user_id: str
-    password: str
-
-
-def client_ip(request: Request) -> Optional[str]:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else None
 
 
 @router.post("/auth/register")
@@ -110,4 +92,4 @@ def auth_csrf(request: Request):
     return {
         "csrf_token": csrf_cookie or "",
         "has_csrf_cookie": bool(csrf_cookie),
-}
+    }
