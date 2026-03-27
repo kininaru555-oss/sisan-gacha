@@ -1,19 +1,28 @@
+"""
+utils.py — 共通ユーティリティ関数
+
+現在残している関数:
+- ensure_user_row_exists（ユーザー行の保証）
+- now_iso（ISO形式の日時取得）
+- client_ip（クライアントIP取得）
+
+※ 認証関連の関数はすべて dependencies.py に移動済み
+"""
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Request
-
-from db import db_transaction
-from security import (
-    get_current_admin_user,
-    get_current_user,
-    verify_csrf_request,
-)
+from fastapi import Request
 
 
-def ensure_user_row_exists(cur, user_id: str):
+def ensure_user_row_exists(cur, user_id: str) -> None:
+    """
+    ユーザーレコードが存在しない場合にデフォルト行を挿入する
+    
+    ポイント、無料ガチャなどの初期値を保証するために使用
+    """
     cur.execute(
         """
         INSERT INTO users (
@@ -28,50 +37,33 @@ def ensure_user_row_exists(cur, user_id: str):
 
 
 def now_iso() -> str:
+    """
+    現在のUTC時刻をISO 8601形式の文字列で返す
+    （ガチャログや作成日時などに使用）
+    """
     return datetime.utcnow().isoformat()
 
 
 def client_ip(request: Request) -> Optional[str]:
+    """
+    クライアントのIPアドレスを取得
+    
+    X-Forwarded-For ヘッダーを優先（リバースプロキシ対応）
+    """
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()
+    
     return request.client.host if request.client else None
 
 
 # ─────────────────────────────────────────────
-# FastAPI Depends 用（おすすめ）
+# 将来的に追加する可能性のあるヘルパー（コメントアウト）
 # ─────────────────────────────────────────────
-def get_db_conn():
-    """トランザクションを使わない場合の簡易依存（必要に応じて使用）"""
-    # 実際の運用では db_transaction と組み合わせるのが安全
-    pass  # 必要なら拡張
-
-
-def get_current_user_id(
-    request: Request,
-    conn=Depends(lambda: None),  # 実際はルーター側でトランザクション管理
-    *,
-    require_csrf: bool = False,
-) -> str:
-    # ここは auth.py の各エンドポイントでトランザクション内で呼ぶ想定
-    user = get_current_user(conn, request)
-    if require_csrf:
-        verify_csrf_request(request)
-    return user["user_id"]
-
-
-def get_current_admin_user_id(
-    request: Request,
-    conn=Depends(lambda: None),
-    *,
-    require_csrf: bool = False,
-) -> str:
-    user = get_current_admin_user(conn, request)
-    if require_csrf:
-        verify_csrf_request(request)
-    return user["user_id"]
-
-
-# 将来的に Depends で直接使える形（例）
-# from fastapi import Depends
-# current_user = Depends(get_current_user)  # など
+# def sanitize_html(text: str) -> str:
+#     """XSS対策用HTMLサニタイズ（bleach推奨）"""
+#     pass
+#
+# def validate_url(url: Optional[str]) -> Optional[str]:
+#     """投稿時のURL検証（許可ドメイン制限など）"""
+#     pass
