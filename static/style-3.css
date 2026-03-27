@@ -247,6 +247,26 @@ body::before {
   margin-bottom: 20px;
 }
 
+.cta-lead {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: var(--yellow-dim);
+  border: 1px solid rgba(212,160,23,0.18);
+  border-radius: var(--r-md);
+}
+
+.cta-note {
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+  text-align: center;
+}
+
 /* ── Forms ── */
 .form-row {
   margin-bottom: 14px;
@@ -372,7 +392,6 @@ body::before {
 .login-note {
   margin-top: 14px;
   font-size: 11px;
-  color: var(--muted);
   line-height: 1.7;
   padding: 10px 12px;
   background: var(--info-bg);
