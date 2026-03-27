@@ -1,24 +1,3 @@
-今回 mypage.py に入れる変更は この4点だけ です。
-
-1. 途中に残っているダミー定義
-@router.post("/withdraw/request") def create_withdraw_request(...)
-を削除する
-
-
-2. CreateWithdrawalRequest を models から import する
-
-
-3. now_iso を utils から import する
-
-
-4. /mypage/prompts が content を返すように修正する
-
-
-
-それ以外のルート、ロジック、レスポンス構造、出金処理、トグル処理、掲載停止申請処理は変更しません。
-
-以下が mypage.py のフルスクリプト完全版 です。
-
 from __future__ import annotations
 
 from collections import defaultdict
