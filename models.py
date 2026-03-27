@@ -7,11 +7,8 @@ models.py — Pydanticモデル定義（バリデーション強化版）
 """
 
 from __future__ import annotations
-
-from typing import Optional
-
-from pydantic import BaseModel, Field, field_validator
-
+from typing import Literal
+from pydantic import BaseModel, Field
 
 # ─────────────────────────────────────────────
 # 認証関連
@@ -104,24 +101,56 @@ class DistributeBundleRequest(BaseModel):
     distribution_round: int = Field(1, ge=1)
 
 
+
 # ─────────────────────────────────────────────
 # 出金・課金関連
 # ─────────────────────────────────────────────
+
 class CreateCheckoutSessionRequest(BaseModel):
+    """Stripe Checkoutセッション作成"""
     product_code: str = Field(..., min_length=1, max_length=50)
 
 
 class CreateWithdrawalRequest(BaseModel):
-    amount_yen: int = Field(..., ge=1000, le=1000000)   # 最低1000円〜最大100万円程度
-    method: str = Field(..., pattern=r"^(paypay|amazon_gift)$")
-    destination: str = Field(..., min_length=1, max_length=200)
-    # withdraw_code はサーバー側で生成するので不要かも
+    """出金申請リクエスト（ユーザー側）
+    
+    注意: withdraw_code は出金コード発行後にユーザーが入力する値です。
+    """
+    amount_yen: int = Field(
+        ..., 
+        ge=1000, 
+        le=1000000, 
+        description="出金金額（1000円以上）"
+    )
+    method: Literal["paypay", "amazon_gift"] = Field(
+        ..., 
+        description="送金方法"
+    )
+    destination: str = Field(
+        ..., 
+        min_length=1, 
+        max_length=200, 
+        description="送金先情報（PayPay ID、Amazonギフト券メールアドレスなど）"
+    )
+    withdraw_code: str = Field(
+        ..., 
+        min_length=6, 
+        max_length=6, 
+        pattern=r"^\d{6}$",
+        description="出金コード発行APIで取得した6桁の数字コード"
+    )
+
+    @field_validator("withdraw_code")
+    @classmethod
+    def validate_withdraw_code(cls, v: str) -> str:
+        """コードの前後空白を除去"""
+        return v.strip()
 
 
 class ProcessWithdrawRequest(BaseModel):
-    status: str = Field(..., pattern=r"^(approved|paid|rejected)$")
+    """出金申請処理（管理者側）"""
+    status: Literal["approved", "paid", "rejected"] = Field(...)
     admin_note: Optional[str] = Field(None, max_length=500)
-
 
 # ─────────────────────────────────────────────
 # プロンプト停止申請関連
